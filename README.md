@@ -1,2 +1,2 @@
-# kube-cronjob-manager
-For kubernetes cronjob monitoring manager
+# job-notify-controller
+For kubernetes jon notification controller
