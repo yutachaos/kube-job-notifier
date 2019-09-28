@@ -1,4 +1,4 @@
-module github.com/yutachaos/kjobwatch
+module github.com/yutachaos/job-notify-controller
 
 go 1.13
 
