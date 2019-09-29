@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"golang.org/x/xerrors"
 	"io"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -75,8 +76,10 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
 				}
-				jobLogStr := getPodLogs(kubeclientset, jobPod)
-
+				jobLogStr, err := getPodLogs(kubeclientset, jobPod)
+				if err != nil {
+					klog.Errorf("Get pods log failed: %v", err)
+				}
 				klog.Infof("Job succeeded log: %v", jobLogStr)
 
 			} else if newJob.Status.Failed == INT_TRUE {
@@ -85,8 +88,10 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
 				}
-				jobLogStr := getPodLogs(kubeclientset, jobPod)
-
+				jobLogStr, err := getPodLogs(kubeclientset, jobPod)
+				if err != nil {
+					klog.Errorf("Get pods log failed: %v", err)
+				}
 				klog.Infof("Job failed log: %v", jobLogStr)
 			}
 			controller.handleObject(new)
@@ -216,19 +221,19 @@ func (c *Controller) handleObject(obj interface{}) {
 	return
 }
 
-func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod) string {
+func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod) (string, error) {
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
 	podLogs, err := req.Stream()
 	defer podLogs.Close()
 	if err != nil {
-		return "error in open log stream"
+		return "", xerrors.Errorf("error in open log stream: %v", err)
 	}
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
 	if err != nil {
-		return "error in copy information from log to buffer"
+		return "", xerrors.Errorf("error in copy information from log to buffer: %v", err)
 	}
 	str := buf.String()
 
-	return str
+	return str, nil
 }

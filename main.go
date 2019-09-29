@@ -40,6 +40,7 @@ func main() {
 			klog.Fatalf("Error building in cluster kubeclient: %s", err.Error())
 		}
 	}
+	// Sync event only
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	controller := NewController(kubeClient, kubeInformerFactory.Batch().V1().Jobs())
