@@ -6,6 +6,7 @@ import (
 	"io"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -151,7 +152,6 @@ func (c *Controller) processNextWorkItem() bool {
 		var ok bool
 
 		if key, ok = obj.(string); !ok {
-
 			c.workqueue.Forget(obj)
 			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
 			return nil
@@ -178,10 +178,17 @@ func (c *Controller) syncHandler(key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	klog.Infof("name: %s", name)
 	klog.Infof("namespace: %s", namespace)
-
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
+	}
+	_, err = c.jobsLister.Jobs(namespace).Get(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			utilruntime.HandleError(fmt.Errorf("job '%s' in work queue no longer exists", key))
+			return nil
+		}
+		return err
 	}
 
 	return nil
@@ -198,21 +205,15 @@ func (c *Controller) enqueueJob(obj interface{}) {
 }
 
 func (c *Controller) handleObject(obj interface{}) {
-	var object metav1.Object
+	var job *batchv1.Job
 	var ok bool
-	if object, ok = obj.(metav1.Object); !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		object, ok = tombstone.Obj.(metav1.Object)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
+
+	if job, ok = obj.(*batchv1.Job); ok {
+		klog.Infof("Processing job: %v", job.GetName())
+		c.enqueueJob(job)
+		return
 	}
-	c.enqueueJob(object)
+	return
 }
 
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod) string {
