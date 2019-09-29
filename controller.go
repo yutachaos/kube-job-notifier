@@ -1,12 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	v1 "k8s.io/api/batch/v1"
-	"time"
-
+	"io"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	batchesinformers "k8s.io/client-go/informers/batch/v1"
@@ -18,9 +19,15 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+	"time"
 )
 
 const controllerAgentName = "cronjob-controller"
+
+const (
+	INT_TRUE     = 1
+	SEARCH_LABEL = "job-name"
+)
 
 type Controller struct {
 	kubeclientset kubernetes.Interface
@@ -50,14 +57,37 @@ func NewController(
 
 	klog.Info("Setting event handlers")
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
+		AddFunc: func(new interface{}) {
+			newJob := new.(*batchv1.Job)
+			klog.Infof("Job started: %v", newJob.Status)
+			controller.handleObject(new)
+		},
 		UpdateFunc: func(old, new interface{}) {
-			newJob := new.(*v1.Job)
-			oldJob := old.(*v1.Job)
+			newJob := new.(*batchv1.Job)
+			oldJob := old.(*batchv1.Job)
 
 			klog.Infof("oldJob.Status:%v", oldJob.Status)
 			klog.Infof("newJob.Status:%v", newJob.Status)
+			if newJob.Status.Succeeded == INT_TRUE {
+				klog.Infof("Job succeeded: %v", newJob.Status)
+				jobPod, err := getPodFromJobName(newJob, kubeclientset)
+				if err != nil {
+					klog.Errorf("Get pods failed: %v", err)
+				}
+				jobLogStr := getPodLogs(kubeclientset, jobPod)
 
+				klog.Infof("Job succeeded log: %v", jobLogStr)
+
+			} else if newJob.Status.Failed == INT_TRUE {
+				klog.Infof("Job failed: %v", newJob.Status)
+				jobPod, err := getPodFromJobName(newJob, kubeclientset)
+				if err != nil {
+					klog.Errorf("Get pods failed: %v", err)
+				}
+				jobLogStr := getPodLogs(kubeclientset, jobPod)
+
+				klog.Infof("Job failed log: %v", jobLogStr)
+			}
 			controller.handleObject(new)
 		},
 		DeleteFunc: controller.handleObject,
@@ -66,11 +96,24 @@ func NewController(
 	return controller
 }
 
+func getPodFromJobName(job *batchv1.Job, kubeclientset kubernetes.Interface) (corev1.Pod, error) {
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{SEARCH_LABEL: job.Name}}
+	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(metav1.ListOptions{
+		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
+		Limit:         1,
+	})
+	if err != nil {
+		return corev1.Pod{}, err
+	}
+	jobPod := jobPodList.Items[0]
+	return jobPod, err
+}
+
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
-	klog.Info("Starting Cronjob notify controller")
+	klog.Info("Starting kubernetes job notify controller")
 
 	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.jobsSynced); !ok {
@@ -170,4 +213,21 @@ func (c *Controller) handleObject(obj interface{}) {
 		}
 	}
 	c.enqueueJob(object)
+}
+
+func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod) string {
+	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
+	podLogs, err := req.Stream()
+	defer podLogs.Close()
+	if err != nil {
+		return "error in open log stream"
+	}
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "error in copy information from log to buffer"
+	}
+	str := buf.String()
+
+	return str
 }
