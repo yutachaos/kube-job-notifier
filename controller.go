@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/yutachaos/job-notify-controller/pkg/notification"
 	"golang.org/x/xerrors"
 	"io"
 	batchv1 "k8s.io/api/batch/v1"
@@ -57,11 +58,19 @@ func NewController(
 		recorder:   recorder,
 	}
 
+	slack := notification.NewSlack()
 	klog.Info("Setting event handlers")
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
 			klog.Infof("Job started: %v", newJob.Status)
+			startTime := newJob.Status.StartTime
+			if startTime != nil {
+				err := slack.NotifyStart("JobName: " + newJob.Name + "startTime: " + startTime.String())
+				if err != nil {
+					klog.Errorf("Failed slack notification: %v", err)
+				}
+			}
 			controller.handleObject(new)
 		},
 		UpdateFunc: func(old, new interface{}) {
@@ -79,6 +88,11 @@ func NewController(
 				jobLogStr, err := getPodLogs(kubeclientset, jobPod)
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
+				}
+				CompletionTime := newJob.Status.CompletionTime.String()
+				err = slack.NotifySuccess("JobName: "+newJob.Name+" CompletionTime: "+CompletionTime, jobLogStr)
+				if err != nil {
+					klog.Errorf("Failed slack notification: %v", err)
 				}
 				klog.Infof("Job succeeded log: %v", jobLogStr)
 

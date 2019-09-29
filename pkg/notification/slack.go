@@ -30,17 +30,22 @@ type Slack interface {
 	notify(attachment slackapi.Attachment, log string) (err error)
 }
 
-func NewSlack(channel string) Slack {
+func NewSlack() Slack {
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
 		panic("please set slack token")
 	}
+	channel := os.Getenv("SLACK_CHANNEL")
+	if token == "" {
+		panic("please set slack channel")
+	}
+
 	return slack{token: token, channel: channel}
 }
 
 func (s slack) NotifyStart(message string) (err error) {
 	attachment := slackapi.Attachment{
-		Color: slackColors["normal"],
+		Color: slackColors["Normal"],
 		Title: "Job Start",
 		Text:  message,
 	}
@@ -53,11 +58,11 @@ func (s slack) NotifyStart(message string) (err error) {
 
 func (s slack) NotifySuccess(message string, log string) (err error) {
 	attachment := slackapi.Attachment{
-		Color: slackColors["normal"],
-		Title: "Job Start",
+		Color: slackColors["Normal"],
+		Title: "Job Success",
 		Text:  message,
 	}
-	err = s.notify(attachment, "")
+	err = s.notify(attachment, log)
 	if err != nil {
 		return err
 	}
@@ -66,11 +71,11 @@ func (s slack) NotifySuccess(message string, log string) (err error) {
 
 func (s slack) NotifyFailed(message string, log string) (err error) {
 	attachment := slackapi.Attachment{
-		Color: slackColors["normal"],
-		Title: "Job Start",
+		Color: slackColors["Danger"],
+		Title: "Job Failed",
 		Text:  message,
 	}
-	err = s.notify(attachment, "")
+	err = s.notify(attachment, log)
 	if err != nil {
 		return err
 	}
@@ -79,9 +84,18 @@ func (s slack) NotifyFailed(message string, log string) (err error) {
 
 func (s slack) notify(attachment slackapi.Attachment, log string) (err error) {
 	api := slackapi.New(s.token)
+	if log != "" {
+		attachment.Fields = []slackapi.AttachmentField{
+			{
+				Title: "log",
+				Value: log,
+				Short: true,
+			},
+		}
+	}
 	channelID, timestamp, err := api.PostMessage(
 		s.channel,
-		slackapi.MsgOptionText(attachment.Text, true),
+		slackapi.MsgOptionText("", true),
 		slackapi.MsgOptionAttachments(attachment),
 	)
 
