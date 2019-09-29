@@ -66,7 +66,13 @@ func NewController(
 			klog.Infof("Job started: %v", newJob.Status)
 			startTime := newJob.Status.StartTime
 			if startTime != nil {
-				err := slack.NotifyStart("JobName: " + newJob.Name + "startTime: " + startTime.String())
+				messageParam := notification.MessageTemplateParam{
+					JobName:        newJob.Name,
+					StartTime:      startTime.String(),
+					CompletionTime: "",
+					Log:            "",
+				}
+				err := slack.NotifyStart(messageParam)
 				if err != nil {
 					klog.Errorf("Failed slack notification: %v", err)
 				}
@@ -89,8 +95,14 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
 				}
-				CompletionTime := newJob.Status.CompletionTime.String()
-				err = slack.NotifySuccess("JobName: "+newJob.Name+" CompletionTime: "+CompletionTime, jobLogStr)
+				CompletionTime := newJob.Status.CompletionTime
+				messageParam := notification.MessageTemplateParam{
+					JobName:        newJob.Name,
+					StartTime:      "",
+					CompletionTime: CompletionTime.String(),
+					Log:            jobLogStr,
+				}
+				err = slack.NotifySuccess(messageParam)
 				if err != nil {
 					klog.Errorf("Failed slack notification: %v", err)
 				}

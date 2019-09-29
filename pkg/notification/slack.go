@@ -1,15 +1,24 @@
 package notification
 
 import (
+	"bytes"
 	slackapi "github.com/nlopes/slack"
+	"html/template"
 	"k8s.io/klog"
 	"os"
 )
 
 const (
-	START   = "start"
-	SUCCESS = "success"
-	FAILED  = "failed"
+	START                = "start"
+	SUCCESS              = "success"
+	FAILED               = "failed"
+	SlackMessageTemplate = `
+JobName: {{.JobName}}
+StartTime: {{.StartTime}}
+CompletionTime: {{.CompletionTime}}
+
+Log: {{.Log}}
+`
 )
 
 var slackColors = map[string]string{
@@ -23,11 +32,18 @@ type slack struct {
 	channel string
 }
 
+type MessageTemplateParam struct {
+	JobName        string
+	StartTime      string
+	CompletionTime string
+	Log            string
+}
+
 type Slack interface {
-	NotifyStart(message string) (err error)
-	NotifySuccess(message string, log string) (err error)
-	NotifyFailed(message string, log string) (err error)
-	notify(attachment slackapi.Attachment, log string) (err error)
+	NotifyStart(messageParam MessageTemplateParam) (err error)
+	NotifySuccess(messageParam MessageTemplateParam) (err error)
+	NotifyFailed(messageParam MessageTemplateParam) (err error)
+	notify(attachment slackapi.Attachment) (err error)
 }
 
 func NewSlack() Slack {
@@ -43,56 +59,77 @@ func NewSlack() Slack {
 	return slack{token: token, channel: channel}
 }
 
-func (s slack) NotifyStart(message string) (err error) {
+func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
+
+	slackMessage, err := getSlackMessage(messageParam)
+	if err != nil {
+		klog.Errorf("Template execute failed %s\n", err)
+		return err
+	}
 	attachment := slackapi.Attachment{
 		Color: slackColors["Normal"],
 		Title: "Job Start",
-		Text:  message,
+		Text:  slackMessage,
 	}
-	err = s.notify(attachment, "")
+	err = s.notify(attachment)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s slack) NotifySuccess(message string, log string) (err error) {
+func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, err error) {
+	var b bytes.Buffer
+	tpl, err := template.New("slack").Parse(SlackMessageTemplate)
+	if err != nil {
+		return "", err
+	}
+	err = tpl.Execute(&b, messageParam)
+	if err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
+	slackMessage, err := getSlackMessage(messageParam)
+	if err != nil {
+		klog.Errorf("Template execute failed %s\n", err)
+		return err
+	}
 	attachment := slackapi.Attachment{
 		Color: slackColors["Normal"],
 		Title: "Job Success",
-		Text:  message,
+		Text:  slackMessage,
 	}
-	err = s.notify(attachment, log)
+	err = s.notify(attachment)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s slack) NotifyFailed(message string, log string) (err error) {
+func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
+	slackMessage, err := getSlackMessage(messageParam)
+	if err != nil {
+		klog.Errorf("Template execute failed %s\n", err)
+		return err
+	}
 	attachment := slackapi.Attachment{
 		Color: slackColors["Danger"],
 		Title: "Job Failed",
-		Text:  message,
+		Text:  slackMessage,
 	}
-	err = s.notify(attachment, log)
+	err = s.notify(attachment)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s slack) notify(attachment slackapi.Attachment, log string) (err error) {
+func (s slack) notify(attachment slackapi.Attachment) (err error) {
 	api := slackapi.New(s.token)
-	if log != "" {
-		attachment.Fields = []slackapi.AttachmentField{
-			{
-				Title: "log",
-				Value: log,
-				Short: true,
-			},
-		}
-	}
+
 	channelID, timestamp, err := api.PostMessage(
 		s.channel,
 		slackapi.MsgOptionText("", true),
@@ -100,7 +137,7 @@ func (s slack) notify(attachment slackapi.Attachment, log string) (err error) {
 	)
 
 	if err != nil {
-		klog.Errorf("Send message failed %s\n", err)
+		klog.Errorf("Send messageParam failed %s\n", err)
 		return
 	}
 
