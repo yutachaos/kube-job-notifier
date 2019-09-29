@@ -63,7 +63,7 @@ func NewController(
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
-			klog.Infof("Job started: %v", newJob.Status)
+			klog.V(4).Infof("Job started: %v", newJob.Status)
 			startTime := newJob.Status.StartTime
 			if startTime != nil {
 				messageParam := notification.MessageTemplateParam{
@@ -83,10 +83,10 @@ func NewController(
 			newJob := new.(*batchv1.Job)
 			oldJob := old.(*batchv1.Job)
 
-			klog.Infof("oldJob.Status:%v", oldJob.Status)
-			klog.Infof("newJob.Status:%v", newJob.Status)
+			klog.V(4).Infof("oldJob.Status:%v", oldJob.Status)
+			klog.V(4).Infof("newJob.Status:%v", newJob.Status)
 			if newJob.Status.Succeeded == INT_TRUE {
-				klog.Infof("Job succeeded: %v", newJob.Status)
+				klog.V(4).Infof("Job succeeded: %v", newJob.Status)
 				jobPod, err := getPodFromJobName(newJob, kubeclientset)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
@@ -106,10 +106,10 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Failed slack notification: %v", err)
 				}
-				klog.Infof("Job succeeded log: %v", jobLogStr)
+				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
 
 			} else if newJob.Status.Failed == INT_TRUE {
-				klog.Infof("Job failed: %v", newJob.Status)
+				klog.V(4).Infof("Job failed: %v", newJob.Status)
 				jobPod, err := getPodFromJobName(newJob, kubeclientset)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
@@ -118,7 +118,7 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
 				}
-				klog.Infof("Job failed log: %v", jobLogStr)
+				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
 			controller.handleObject(new)
 		},
@@ -193,7 +193,7 @@ func (c *Controller) processNextWorkItem() bool {
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
 		c.workqueue.Forget(obj)
-		klog.Infof("Successfully synced '%s'", key)
+		klog.V(4).Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -207,8 +207,8 @@ func (c *Controller) processNextWorkItem() bool {
 
 func (c *Controller) syncHandler(key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	klog.Infof("name: %s", name)
-	klog.Infof("namespace: %s", namespace)
+	klog.V(4).Infof("name: %s", name)
+	klog.V(4).Infof("namespace: %s", namespace)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
@@ -240,7 +240,7 @@ func (c *Controller) handleObject(obj interface{}) {
 	var ok bool
 
 	if job, ok = obj.(*batchv1.Job); ok {
-		klog.Infof("Processing job: %v", job.GetName())
+		klog.V(4).Infof("Processing job: %v", job.GetName())
 		c.enqueueJob(job)
 		return
 	}
