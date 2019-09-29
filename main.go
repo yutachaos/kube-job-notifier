@@ -10,7 +10,6 @@ import (
 	"k8s.io/klog"
 	"os/user"
 	"path/filepath"
-	"time"
 )
 
 var (
@@ -41,8 +40,7 @@ func main() {
 			klog.Fatalf("Error building in cluster kubeclient: %s", err.Error())
 		}
 	}
-
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	controller := NewController(kubeClient, kubeInformerFactory.Batch().V1().Jobs())
 
