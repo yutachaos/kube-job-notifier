@@ -13,11 +13,13 @@ const (
 	SUCCESS              = "success"
 	FAILED               = "failed"
 	SlackMessageTemplate = `
-JobName: {{.JobName}}
-StartTime: {{.StartTime}}
-CompletionTime: {{.CompletionTime}}
 
-Log: {{.Log}}
+*JobName*: {{.JobName}}
+{{if .StartTime }}*StartTime*: {{.StartTime}}{{end}}
+{{if .CompletionTime }}*CompletionTime*: {{.CompletionTime}}{{end}}
+
+{{if .Log }}*Log*: {{.Log}}{{end}}
+
 `
 )
 

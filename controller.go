@@ -63,14 +63,12 @@ func NewController(
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
-			klog.V(4).Infof("Job started: %v", newJob.Status)
-			startTime := newJob.Status.StartTime
-			if startTime != nil {
+			if newJob.Status.StartTime != nil && newJob.Status.CompletionTime == nil {
+				klog.Infof("Job started: %v", newJob.Status)
+				startTime := newJob.Status.StartTime.String()
 				messageParam := notification.MessageTemplateParam{
-					JobName:        newJob.Name,
-					StartTime:      startTime.String(),
-					CompletionTime: "",
-					Log:            "",
+					JobName:   newJob.Name,
+					StartTime: startTime,
 				}
 				err := slack.NotifyStart(messageParam)
 				if err != nil {
@@ -98,7 +96,6 @@ func NewController(
 				CompletionTime := newJob.Status.CompletionTime
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
-					StartTime:      "",
 					CompletionTime: CompletionTime.String(),
 					Log:            jobLogStr,
 				}
@@ -241,8 +238,10 @@ func (c *Controller) handleObject(obj interface{}) {
 
 	if job, ok = obj.(*batchv1.Job); ok {
 		klog.V(4).Infof("Processing job: %v", job.GetName())
-		c.enqueueJob(job)
-		return
+		if job.Status.StartTime != nil {
+			c.enqueueJob(job)
+			return
+		}
 	}
 	return
 }
