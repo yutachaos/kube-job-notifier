@@ -15,8 +15,6 @@ const (
 	SlackMessageTemplate = `
 
 *JobName*: {{.JobName}}
-{{if .StartTime }}*StartTime*: {{.StartTime}}{{end}}
-{{if .CompletionTime }}*CompletionTime*: {{.CompletionTime}}{{end}}
 
 {{if .Log }}*Log*: {{.Log}}{{end}}
 
@@ -35,10 +33,8 @@ type slack struct {
 }
 
 type MessageTemplateParam struct {
-	JobName        string
-	StartTime      string
-	CompletionTime string
-	Log            string
+	JobName string
+	Log     string
 }
 
 type Slack interface {
