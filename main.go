@@ -27,11 +27,11 @@ func main() {
 	if _, err := rest.InClusterConfig(); err != nil {
 		cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
 		if err != nil {
-			klog.Fatalf("Error building example kubeclient: %s", err.Error())
+			klog.Fatalf("Error building kubeclient: %s", err.Error())
 		}
 		kubeClient, err = kubernetes.NewForConfig(cfg)
 		if err != nil {
-			klog.Fatalf("Error building example kubeclient: %s", err.Error())
+			klog.Fatalf("Error building kubeclient: %s", err.Error())
 		}
 	} else {
 		cfg, err := rest.InClusterConfig()
