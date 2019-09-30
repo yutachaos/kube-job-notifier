@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/yutachaos/job-notify-controller/pkg/notification"
+	"github.com/yutachaos/kube-job-notifier/pkg/notification"
 	"golang.org/x/xerrors"
 	"io"
 	batchv1 "k8s.io/api/batch/v1"

@@ -1,4 +1,4 @@
-module github.com/yutachaos/job-notify-controller
+module github.com/yutachaos/kube-job-notifier
 
 go 1.13
 

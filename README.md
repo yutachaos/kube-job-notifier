@@ -1,5 +1,5 @@
-# job-notify-controller
-For kubernetes job notification controller
+# kube-job-notifier
+For kubernetes job notification tool 
 
 ## Description
 - Custom controller that notifies Kubernetes Job start, success, and failure.
