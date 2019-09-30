@@ -63,12 +63,11 @@ func NewController(
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
-			if newJob.Status.StartTime != nil && newJob.Status.CompletionTime == nil {
+			klog.Infof("Job Added: %v", newJob.Status)
+			if newJob.Status.CompletionTime == nil {
 				klog.Infof("Job started: %v", newJob.Status)
-				startTime := newJob.Status.StartTime.String()
 				messageParam := notification.MessageTemplateParam{
-					JobName:   newJob.Name,
-					StartTime: startTime,
+					JobName: newJob.Name,
 				}
 				err := slack.NotifyStart(messageParam)
 				if err != nil {
@@ -93,11 +92,9 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
 				}
-				CompletionTime := newJob.Status.CompletionTime
 				messageParam := notification.MessageTemplateParam{
-					JobName:        newJob.Name,
-					CompletionTime: CompletionTime.String(),
-					Log:            jobLogStr,
+					JobName: newJob.Name,
+					Log:     jobLogStr,
 				}
 				err = slack.NotifySuccess(messageParam)
 				if err != nil {
