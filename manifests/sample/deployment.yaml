@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-job-notifier-deployment
+  labels:
+    app: kube-job-notifier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-job-notifier
+  template:
+    metadata:
+      labels:
+        app: kube-job-notifier
+    spec:
+      serviceAccountName: jobview
+      containers:
+        - name: kube-job-notifier
+          image: yutachaos/kube-job-notifier:0.0.1
+          env:
+            - name: SLACK_TOKEN
+              value: "YOUR SLACK TOKEN"
+            - name: SLACK_CHANNEL
+              value: "YOUR NOTIFICATION SLACK CHANNEL ID"
