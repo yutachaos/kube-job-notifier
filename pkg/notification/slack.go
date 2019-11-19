@@ -2,10 +2,11 @@ package notification
 
 import (
 	"bytes"
-	slackapi "github.com/nlopes/slack"
 	"html/template"
-	"k8s.io/klog"
 	"os"
+
+	slackapi "github.com/nlopes/slack"
+	"k8s.io/klog"
 )
 
 const (
@@ -29,8 +30,9 @@ var slackColors = map[string]string{
 }
 
 type slack struct {
-	token   string
-	channel string
+	token    string
+	channel  string
+	username string
 }
 
 type MessageTemplateParam struct {
@@ -56,7 +58,9 @@ func NewSlack() Slack {
 		panic("please set slack channel")
 	}
 
-	return slack{token: token, channel: channel}
+	username := os.Getenv("SLACK_USERNAME")
+
+	return slack{token: token, channel: channel, username: username}
 }
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
@@ -67,6 +71,7 @@ func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
 		return err
 	}
 	attachment := slackapi.Attachment{
+
 		Color: slackColors["Normal"],
 		Title: "Job Start",
 		Text:  slackMessage,
@@ -134,6 +139,7 @@ func (s slack) notify(attachment slackapi.Attachment) (err error) {
 		s.channel,
 		slackapi.MsgOptionText("", true),
 		slackapi.MsgOptionAttachments(attachment),
+		slackapi.MsgOptionUsername(s.username),
 	)
 
 	if err != nil {

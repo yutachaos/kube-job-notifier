@@ -11,6 +11,7 @@ For kubernetes job notification tool
 ```bash
 export SLACK_TOKEN=YOUR_SLACK_TOKEN
 export SLACK_CHANNEL=YOUR_NOTIFICATION_CHANNEL_ID
+export SLACK_USERNAME=YOUR_NOTIFICATION_USERNAME # OPTIONAL
 ```
 
 ### Run
