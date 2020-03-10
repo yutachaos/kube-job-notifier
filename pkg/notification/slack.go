@@ -5,7 +5,7 @@ import (
 	"html/template"
 	"os"
 
-	slackapi "github.com/nlopes/slack"
+	slackapi "github.com/slack-go/slack"
 	"k8s.io/klog"
 )
 
