@@ -14,15 +14,9 @@ const (
 	SUCCESS              = "success"
 	FAILED               = "failed"
 	SlackMessageTemplate = `
-
 *JobName*: {{.JobName}}
 {{if .Namespace}} *Namespace*: {{.Namespace}} {{end}}
-{{if .Log }}
-*Log* 
-{{.Log}}
-{{end}}
-
-
+{{if .Log }} *Loglink*: {{.Log}} {{end}}
 `
 )
 
@@ -177,6 +171,7 @@ func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err e
 			Title:    param.Namespace + "_" + param.JobName,
 			Content:  param.Log,
 			Filetype: "txt",
+			Channels: []string{s.channel},
 		})
 	if err != nil {
 		klog.Errorf("File uploadLog failed %s\n", err)
