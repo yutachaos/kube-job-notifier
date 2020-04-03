@@ -5,7 +5,7 @@ import (
 	"html/template"
 	"os"
 
-	slackapi "github.com/nlopes/slack"
+	slackapi "github.com/slack-go/slack"
 	"k8s.io/klog"
 )
 
@@ -14,12 +14,9 @@ const (
 	SUCCESS              = "success"
 	FAILED               = "failed"
 	SlackMessageTemplate = `
-
 *JobName*: {{.JobName}}
-*Namespace*: {{.Namespace}}
-
-{{if .Log }}*Log*: {{.Log}}{{end}}
-
+{{if .Namespace}} *Namespace*: {{.Namespace}} {{end}}
+{{if .Log }} *Loglink*: {{.Log}} {{end}}
 `
 )
 
@@ -71,7 +68,6 @@ func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
 		return err
 	}
 	attachment := slackapi.Attachment{
-
 		Color: slackColors["Normal"],
 		Title: "Job Start",
 		Text:  slackMessage,
@@ -97,6 +93,14 @@ func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, er
 }
 
 func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
+	if messageParam.Log != "" {
+		file, err := s.uploadLog(messageParam)
+		if err != nil {
+			klog.Errorf("Template execute failed %s\n", err)
+			return err
+		}
+		messageParam.Log = file.Permalink
+	}
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
@@ -115,6 +119,14 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 }
 
 func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
+	if messageParam.Log != "" {
+		file, err := s.uploadLog(messageParam)
+		if err != nil {
+			klog.Errorf("Template execute failed %s\n", err)
+			return err
+		}
+		messageParam.Log = file.Permalink
+	}
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
@@ -149,4 +161,23 @@ func (s slack) notify(attachment slackapi.Attachment) (err error) {
 
 	klog.Infof("Message successfully sent to channel %s at %s", channelID, timestamp)
 	return err
+}
+
+func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err error) {
+	api := slackapi.New(s.token)
+
+	file, err = api.UploadFile(
+		slackapi.FileUploadParameters{
+			Title:    param.Namespace + "_" + param.JobName,
+			Content:  param.Log,
+			Filetype: "txt",
+			Channels: []string{s.channel},
+		})
+	if err != nil {
+		klog.Errorf("File uploadLog failed %s\n", err)
+		return
+	}
+
+	klog.Infof("File uploadLog successfully %s", file.Name)
+	return
 }

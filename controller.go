@@ -258,7 +258,6 @@ func (c *Controller) handleObject(obj interface{}) {
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod) (string, error) {
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
 	podLogs, err := req.Stream()
-	defer podLogs.Close()
 	if err != nil {
 		return "", xerrors.Errorf("error in open log stream: %v", err)
 	}
@@ -268,6 +267,10 @@ func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod) (string, error) 
 		return "", xerrors.Errorf("error in copy information from log to buffer: %v", err)
 	}
 	str := buf.String()
+	err = podLogs.Close()
 
+	if err != nil {
+		return "", xerrors.Errorf("error in close log stream: %v", err)
+	}
 	return str, nil
 }
