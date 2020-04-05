@@ -11,4 +11,4 @@ lint:
 
 push_image:
 	docker build -t yutachaos/kube-job-notifier:$(IMAGE_TAG) .
-    docker push yutachaos/argocd-notifications:$(IMAGE_TAG)
+    docker push yutachaos/kube-job-notifier:$(IMAGE_TAG)
