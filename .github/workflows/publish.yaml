@@ -1,4 +1,4 @@
-name: CI
+name: docker push
 on: [push]
 jobs:
   push_to_registry:
