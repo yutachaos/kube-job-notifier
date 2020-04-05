@@ -2,8 +2,8 @@ name: CI
 on: [push]
 jobs:
   push_to_registry:
+    runs-on: ubuntu-latest
     steps:
-      runs-on: ubuntu-latest
       - uses: actions/checkout@v1.0
       - uses: docker/build-push-action@v1
         with:
