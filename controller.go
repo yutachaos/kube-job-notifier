@@ -33,6 +33,7 @@ const (
 
 var serverStartTime time.Time
 
+// Controller is Kubernetes Controller struct
 type Controller struct {
 	kubeclientset kubernetes.Interface
 	jobsLister    batcheslisters.JobLister
@@ -147,6 +148,7 @@ func getPodFromJobName(job *batchv1.Job, kubeclientset kubernetes.Interface) (co
 	return jobPod, err
 }
 
+// Run is Kubernetes Controller execute method
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()
