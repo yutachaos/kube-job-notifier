@@ -50,28 +50,38 @@ func NewSlack() Slack {
 	if token == "" {
 		panic("please set slack token")
 	}
+
 	channel := os.Getenv("SLACK_CHANNEL")
-	if token == "" {
-		panic("please set slack channel")
-	}
 
 	username := os.Getenv("SLACK_USERNAME")
 
-	return slack{token: token, channel: channel, username: username}
+	return slack{
+		token:    token,
+		channel:  channel,
+		username: username,
+	}
+
 }
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
+
+	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
+	if succeedChannel != "" {
+		s.channel = succeedChannel
+	}
 
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
 		return err
 	}
+
 	attachment := slackapi.Attachment{
 		Color: slackColors["Normal"],
 		Title: "Job Start",
 		Text:  slackMessage,
 	}
+
 	err = s.notify(attachment)
 	if err != nil {
 		return err
@@ -93,6 +103,10 @@ func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, er
 }
 
 func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
+	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
+	if succeedChannel != "" {
+		s.channel = succeedChannel
+	}
 	if messageParam.Log != "" {
 		file, err := s.uploadLog(messageParam)
 		if err != nil {
@@ -101,6 +115,7 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 		}
 		messageParam.Log = file.Permalink
 	}
+
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
@@ -111,6 +126,7 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 		Title: "Job Success",
 		Text:  slackMessage,
 	}
+
 	err = s.notify(attachment)
 	if err != nil {
 		return err
@@ -119,6 +135,10 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 }
 
 func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
+	failedChannel := os.Getenv("SLACK_FAILED_CHANNEL")
+	if failedChannel != "" {
+		s.channel = failedChannel
+	}
 	if messageParam.Log != "" {
 		file, err := s.uploadLog(messageParam)
 		if err != nil {
@@ -127,16 +147,19 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 		}
 		messageParam.Log = file.Permalink
 	}
+
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
 		return err
 	}
+
 	attachment := slackapi.Attachment{
 		Color: slackColors["Danger"],
 		Title: "Job Failed",
 		Text:  slackMessage,
 	}
+
 	err = s.notify(attachment)
 	if err != nil {
 		return err
