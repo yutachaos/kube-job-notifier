@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+	"os"
 	"os/user"
 	"path/filepath"
 )
@@ -43,7 +44,10 @@ func main() {
 	// Sync event only
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
-	controller := NewController(kubeClient, kubeInformerFactory.Batch().V1().Jobs())
+	// Specified namespace
+	namespace := os.Getenv("NAMESPACE")
+
+	controller := NewController(kubeClient, namespace, kubeInformerFactory.Batch().V1().Jobs())
 
 	kubeInformerFactory.Start(stopCh)
 
