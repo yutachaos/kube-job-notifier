@@ -32,13 +32,7 @@ type slack struct {
 	username string
 }
 
-type Slack interface {
-	NotifyStart(messageParam MessageTemplateParam) (err error)
-	NotifySuccess(messageParam MessageTemplateParam) (err error)
-	NotifyFailed(messageParam MessageTemplateParam) (err error)
-}
-
-func newSlack() Slack {
+func newSlack() slack {
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
 		panic("please set slack client")
