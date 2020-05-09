@@ -62,7 +62,7 @@ func NewController(
 	}
 	serverStartTime = time.Now().Local()
 
-	slack := notification.NewSlack()
+	notifications := notification.NewNotifications()
 	klog.Info("Setting event handlers")
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
@@ -73,10 +73,13 @@ func NewController(
 				messageParam := notification.MessageTemplateParam{
 					JobName: newJob.Name,
 				}
-				err := slack.NotifyStart(messageParam)
-				if err != nil {
-					klog.Errorf("Failed slack notification: %v", err)
+				for name, n := range notifications {
+					err := n.NotifyStart(messageParam)
+					if err != nil {
+						klog.Errorf("Failed %s notification: %v", name, err)
+					}
 				}
+
 			}
 			controller.handleObject(new)
 		},
@@ -101,9 +104,11 @@ func NewController(
 					Log:       jobLogStr,
 					Namespace: newJob.Namespace,
 				}
-				err = slack.NotifySuccess(messageParam)
-				if err != nil {
-					klog.Errorf("Failed slack notification: %v", err)
+				for name, n := range notifications {
+					err = n.NotifySuccess(messageParam)
+					if err != nil {
+						klog.Errorf("Failed %s n: %v", name, err)
+					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
 
@@ -122,9 +127,11 @@ func NewController(
 					Log:       jobLogStr,
 					Namespace: newJob.Namespace,
 				}
-				err = slack.NotifyFailed(messageParam)
-				if err != nil {
-					klog.Errorf("Failed slack notification: %v", err)
+				for name, n := range notifications {
+					err := n.NotifyFailed(messageParam)
+					if err != nil {
+						klog.Errorf("Failed %s notification: %v", name, err)
+					}
 				}
 				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}

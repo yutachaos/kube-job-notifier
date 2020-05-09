@@ -27,36 +27,31 @@ var slackColors = map[string]string{
 }
 
 type slack struct {
-	token    string
+	client   *slackapi.Client
 	channel  string
 	username string
-}
-
-type MessageTemplateParam struct {
-	JobName   string
-	Namespace string
-	Log       string
 }
 
 type Slack interface {
 	NotifyStart(messageParam MessageTemplateParam) (err error)
 	NotifySuccess(messageParam MessageTemplateParam) (err error)
 	NotifyFailed(messageParam MessageTemplateParam) (err error)
-	notify(attachment slackapi.Attachment) (err error)
 }
 
-func NewSlack() Slack {
+func newSlack() Slack {
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
-		panic("please set slack token")
+		panic("please set slack client")
 	}
+
+	client := slackapi.New(token)
 
 	channel := os.Getenv("SLACK_CHANNEL")
 
 	username := os.Getenv("SLACK_USERNAME")
 
 	return slack{
-		token:    token,
+		client:   client,
 		channel:  channel,
 		username: username,
 	}
@@ -168,9 +163,8 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 }
 
 func (s slack) notify(attachment slackapi.Attachment) (err error) {
-	api := slackapi.New(s.token)
 
-	channelID, timestamp, err := api.PostMessage(
+	channelID, timestamp, err := s.client.PostMessage(
 		s.channel,
 		slackapi.MsgOptionText("", true),
 		slackapi.MsgOptionAttachments(attachment),
@@ -187,9 +181,7 @@ func (s slack) notify(attachment slackapi.Attachment) (err error) {
 }
 
 func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err error) {
-	api := slackapi.New(s.token)
-
-	file, err = api.UploadFile(
+	file, err = s.client.UploadFile(
 		slackapi.FileUploadParameters{
 			Title:    param.Namespace + "_" + param.JobName,
 			Content:  param.Log,
