@@ -1,6 +1,7 @@
 package notification
 
 import (
+	slackapi "github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -12,7 +13,7 @@ func TestNewSlack(t *testing.T) {
 	os.Setenv("SLACK_USERNAME", "slack_username")
 
 	expected := slack{
-		client:   "slack_token",
+		client:   slackapi.New("slack_token"),
 		channel:  "slack_channel",
 		username: "slack_username",
 	}
@@ -24,7 +25,7 @@ func TestNewSlack(t *testing.T) {
 
 	actual = newSlack()
 	expected = slack{
-		client:   "slack_token",
+		client:   slackapi.New("slack_token"),
 		channel:  "",
 		username: "",
 	}

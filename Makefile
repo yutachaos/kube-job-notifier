@@ -2,7 +2,7 @@ REVISION =$(shell git rev-parse HEAD | head -c 8)
 
 .PHONY: test
 test:
-	go test ./...
+	go test -v ./...
 
 .PHONY: fmt
 fmt:

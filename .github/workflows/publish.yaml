@@ -16,8 +16,8 @@ jobs:
       - name: Get dependencies
         run: go get -v -t -d ./...
 
-      - name: Test code
-        run: go test -v .
+      - name: Execute test
+        run: make test
   push_to_registry:
     runs-on: ubuntu-latest
     steps:
