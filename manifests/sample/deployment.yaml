@@ -27,3 +27,5 @@ spec:
               value: "YOUR NOTIFICATION SLACK CHANNEL ID FOR SUCCESS"
             - name: SLACK_FAILED_CHANNEL
               value: "YOUR NOTIFICATION SLACK CHANNEL ID FOR FAILED"
+            - name: DATADOG_ENABLE
+              value: true

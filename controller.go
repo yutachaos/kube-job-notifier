@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/yutachaos/kube-job-notifier/pkg/monitoring"
 	"github.com/yutachaos/kube-job-notifier/pkg/notification"
 	"golang.org/x/xerrors"
 	"io"
@@ -110,6 +111,17 @@ func NewController(
 						klog.Errorf("Failed %s n: %v", name, err)
 					}
 				}
+
+				if os.Getenv("DATADOG_ENABLE") == "true" {
+				err = monitoring.NewDatadog().SuccessEvent(
+					monitoring.JobInfo{
+						Name:      newJob.Name,
+						Namespace: newJob.Namespace,
+					})
+				if err != nil {
+					klog.Errorf("Fail event subscribe.: %v", err)
+				}
+				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
 
 			} else if newJob.Status.Failed == intTrue {
@@ -132,6 +144,16 @@ func NewController(
 					if err != nil {
 						klog.Errorf("Failed %s notification: %v", name, err)
 					}
+				}
+				if os.Getenv("DATADOG_ENABLE") == "true" {
+				err = monitoring.NewDatadog().FailEvent(
+					monitoring.JobInfo{
+						Name:      newJob.Name,
+						Namespace: newJob.Namespace,
+					})
+				if err != nil {
+					klog.Errorf("Fail event subscribe.: %v", err)
+				}
 				}
 				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
