@@ -25,7 +25,7 @@ type Datadog interface {
 func NewDatadog() Datadog {
 	client, err := statsd.New("127.0.0.1:8125")
 	if err != nil {
-		klog.Errorf("Failed create statsd client.", err)
+		klog.Errorf("Failed create statsd client. error: %v", err)
 	}
 
 	tags := []string{os.Getenv("DD_TAGS")}
@@ -57,7 +57,7 @@ func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
 			},
 		})
 	if err != nil {
-		klog.Errorf("Failed subscribe custom event", err)
+		klog.Errorf("Failed subscribe custom event. error: %v", err)
 		return err
 	}
 	klog.Infof("Event subscribe successfully %s", jobInfo.Name)
@@ -76,7 +76,7 @@ func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
 			},
 		})
 	if err != nil {
-		klog.Errorf("Failed subscribe custom event", err)
+		klog.Errorf("Failed subscribe custom event. error: %v", err)
 		return err
 	}
 	klog.Infof("Event subscribe successfully %s", jobInfo.Name)

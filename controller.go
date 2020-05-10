@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+	"os"
 	"time"
 )
 
@@ -113,14 +114,14 @@ func NewController(
 				}
 
 				if os.Getenv("DATADOG_ENABLE") == "true" {
-				err = monitoring.NewDatadog().SuccessEvent(
-					monitoring.JobInfo{
-						Name:      newJob.Name,
-						Namespace: newJob.Namespace,
-					})
-				if err != nil {
-					klog.Errorf("Fail event subscribe.: %v", err)
-				}
+					err = monitoring.NewDatadog().SuccessEvent(
+						monitoring.JobInfo{
+							Name:      newJob.Name,
+							Namespace: newJob.Namespace,
+						})
+					if err != nil {
+						klog.Errorf("Fail event subscribe.: %v", err)
+					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
 
@@ -146,14 +147,14 @@ func NewController(
 					}
 				}
 				if os.Getenv("DATADOG_ENABLE") == "true" {
-				err = monitoring.NewDatadog().FailEvent(
-					monitoring.JobInfo{
-						Name:      newJob.Name,
-						Namespace: newJob.Namespace,
-					})
-				if err != nil {
-					klog.Errorf("Fail event subscribe.: %v", err)
-				}
+					err = monitoring.NewDatadog().FailEvent(
+						monitoring.JobInfo{
+							Name:      newJob.Name,
+							Namespace: newJob.Namespace,
+						})
+					if err != nil {
+						klog.Errorf("Fail event subscribe.: %v", err)
+					}
 				}
 				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
