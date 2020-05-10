@@ -12,17 +12,7 @@ type datadog struct {
 	client *statsd.Client
 }
 
-type JobInfo struct {
-	Name      string
-	Namespace string
-}
-
-type Datadog interface {
-	SuccessEvent(jobInfo JobInfo) (err error)
-	FailEvent(jobInfo JobInfo) (err error)
-}
-
-func NewDatadog() Datadog {
+func newDatadog() datadog {
 	client, err := statsd.New("127.0.0.1:8125")
 	if err != nil {
 		klog.Errorf("Failed create statsd client. error: %v", err)

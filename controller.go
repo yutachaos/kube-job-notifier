@@ -65,6 +65,9 @@ func NewController(
 	serverStartTime = time.Now().Local()
 
 	notifications := notification.NewNotifications()
+	subscriptions := monitoring.NewSubscription()
+	datadogSubscription := subscriptions["datadog"]
+
 	klog.Info("Setting event handlers")
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
@@ -114,7 +117,7 @@ func NewController(
 				}
 
 				if os.Getenv("DATADOG_ENABLE") == "true" {
-					err = monitoring.NewDatadog().SuccessEvent(
+					err = datadogSubscription.SuccessEvent(
 						monitoring.JobInfo{
 							Name:      newJob.Name,
 							Namespace: newJob.Namespace,
@@ -147,7 +150,7 @@ func NewController(
 					}
 				}
 				if os.Getenv("DATADOG_ENABLE") == "true" {
-					err = monitoring.NewDatadog().FailEvent(
+					err = datadogSubscription.FailEvent(
 						monitoring.JobInfo{
 							Name:      newJob.Name,
 							Namespace: newJob.Namespace,
