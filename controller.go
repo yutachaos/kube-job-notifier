@@ -320,7 +320,7 @@ func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batc
 					Kind:       ownerReferences[0].Kind,
 					APIVersion: ownerReferences[0].APIVersion,
 				},
-				ResourceVersion: ownerReferences[0].APIVersion,
+				ResourceVersion: job.ResourceVersion,
 			})
 		if err != nil {
 			return v1beta1.CronJob{}, err
