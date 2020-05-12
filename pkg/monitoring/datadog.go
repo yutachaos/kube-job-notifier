@@ -74,6 +74,6 @@ func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
 		klog.Errorf("Failed subscribe custom event. error: %v", err)
 		return err
 	}
-	klog.Infof("Event subscribe successfully %s", jobInfo.Name)
+	klog.Infof("Event subscribe successfully %s", jobInfo.getJobName())
 	return nil
 }
