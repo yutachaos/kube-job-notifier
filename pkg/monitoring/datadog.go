@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	hostName         = "kube-job-notifier"
-	serviceCheckName = "kube_job_notifier.job.status"
+	DefaultStatsAddrUDS = "unix:///var/run/datadog/dsd.socket"
+	hostName            = "kube-job-notifier"
+	serviceCheckName    = "kube_job_notifier.job.status"
 )
 
 type datadog struct {
@@ -16,7 +17,7 @@ type datadog struct {
 }
 
 func newDatadog() datadog {
-	client, err := statsd.New("127.0.0.1:8125")
+	client, err := statsd.New(DefaultStatsAddrUDS)
 	if err != nil {
 		klog.Errorf("Failed create statsd client. error: %v", err)
 	}
@@ -50,8 +51,6 @@ func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
 		},
 	}
 	err = d.client.ServiceCheck(sc)
-
-	klog.Infof("Debug service check: %v", sc)
 	if err != nil {
 		klog.Errorf("Failed subscribe custom event. error: %v", err)
 		return err
@@ -72,7 +71,6 @@ func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
 		},
 	}
 	err = d.client.ServiceCheck(sc)
-	klog.Infof("Debug service check: %v", sc)
 	if err != nil {
 		klog.Errorf("Failed subscribe custom event. error: %v", err)
 		return err

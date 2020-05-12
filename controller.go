@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/thoas/go-funk"
 	"github.com/yutachaos/kube-job-notifier/pkg/monitoring"
 	"github.com/yutachaos/kube-job-notifier/pkg/notification"
 	"golang.org/x/xerrors"
@@ -130,8 +131,9 @@ func NewController(
 
 					err = datadogSubscription.SuccessEvent(
 						monitoring.JobInfo{
-							Name:      newJob.Name,
-							Namespace: newJob.Namespace,
+							CronJobName: cronJob.Name,
+							Name:        newJob.Name,
+							Namespace:   newJob.Namespace,
 						})
 					if err != nil {
 						klog.Errorf("Fail event subscribe.: %v", err)
@@ -146,7 +148,7 @@ func NewController(
 					klog.Errorf("Get pods failed: %v", err)
 				}
 				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
-
+				klog.Infof("Debug cronjob name: %s", cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
 				}
@@ -171,8 +173,9 @@ func NewController(
 				if os.Getenv("DATADOG_ENABLE") == "true" {
 					err = datadogSubscription.FailEvent(
 						monitoring.JobInfo{
-							Name:      newJob.Name,
-							Namespace: newJob.Namespace,
+							CronJobName: cronJob.Name,
+							Name:        newJob.Name,
+							Namespace:   newJob.Namespace,
 						})
 					if err != nil {
 						klog.Errorf("Fail event subscribe.: %v", err)
@@ -311,8 +314,13 @@ func getPodFromJobName(kubeclientset kubernetes.Interface, job *batchv1.Job) (co
 }
 
 func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batchv1.Job) (v1beta1.CronJob, error) {
-	ownerReferences := job.OwnerReferences
-	if ownerReferences != nil && ownerReferences[0].Kind == "CronJob" {
+
+	ownerReferences, ok := funk.Filter(job.OwnerReferences,
+		func(ownerReference metav1.OwnerReference) bool {
+			return ownerReference.Kind == "CronJob"
+		}).([]metav1.OwnerReference)
+
+	if ok && len(ownerReferences) > 0 {
 		cronJob, err := kubeclientset.BatchV1beta1().CronJobs(job.Namespace).Get(
 			ownerReferences[0].Name,
 			metav1.GetOptions{
@@ -321,6 +329,7 @@ func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batc
 					APIVersion: ownerReferences[0].APIVersion,
 				},
 			})
+
 		if err != nil {
 			return v1beta1.CronJob{}, err
 		}
