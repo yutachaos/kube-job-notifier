@@ -6,7 +6,10 @@ import (
 	"os"
 )
 
-const serviceCheckName = "kube_job_notifier.cronjob.status"
+const (
+	hostName         = "kube-job-notifier"
+	serviceCheckName = "kube_job_notifier.cronjob.status"
+)
 
 type datadog struct {
 	client *statsd.Client
@@ -38,11 +41,12 @@ func newDatadog() datadog {
 func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
 	err = d.client.ServiceCheck(
 		&statsd.ServiceCheck{
-			Name:    serviceCheckName,
-			Status:  statsd.Ok,
-			Message: "Cronjob succeed",
+			Name:     serviceCheckName,
+			Status:   statsd.Ok,
+			Message:  "Job succeed",
+			Hostname: hostName,
 			Tags: []string{
-				"job_name:" + jobInfo.Name,
+				"job_name:" + jobInfo.getJobName(),
 				"namespace:" + jobInfo.Namespace,
 			},
 		})
@@ -57,11 +61,12 @@ func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
 func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
 	err = d.client.ServiceCheck(
 		&statsd.ServiceCheck{
-			Name:    serviceCheckName,
-			Status:  statsd.Critical,
-			Message: "Cronjob failed",
+			Name:     serviceCheckName,
+			Status:   statsd.Critical,
+			Message:  "Job failed",
+			Hostname: hostName,
 			Tags: []string{
-				"job_name:" + jobInfo.Name,
+				"job_name:" + jobInfo.getJobName(),
 				"namespace:" + jobInfo.Namespace,
 			},
 		})

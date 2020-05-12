@@ -1,8 +1,16 @@
 package monitoring
 
 type JobInfo struct {
-	Name      string
-	Namespace string
+	Name        string
+	CronJobName string
+	Namespace   string
+}
+
+func (j JobInfo) getJobName() string {
+	if j.CronJobName != "" {
+		return j.CronJobName
+	}
+	return j.Name
 }
 
 type Subscription interface {
