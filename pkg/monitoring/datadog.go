@@ -39,17 +39,19 @@ func newDatadog() datadog {
 }
 
 func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
-	err = d.client.ServiceCheck(
-		&statsd.ServiceCheck{
-			Name:     serviceCheckName,
-			Status:   statsd.Ok,
-			Message:  "Job succeed",
-			Hostname: hostName,
-			Tags: []string{
-				"job_name:" + jobInfo.getJobName(),
-				"namespace:" + jobInfo.Namespace,
-			},
-		})
+	sc := &statsd.ServiceCheck{
+		Name:     serviceCheckName,
+		Status:   statsd.Ok,
+		Message:  "Job succeed",
+		Hostname: hostName,
+		Tags: []string{
+			"job_name:" + jobInfo.getJobName(),
+			"namespace:" + jobInfo.Namespace,
+		},
+	}
+	err = d.client.ServiceCheck(sc)
+
+	klog.Infof("Debug service check: %v", sc)
 	if err != nil {
 		klog.Errorf("Failed subscribe custom event. error: %v", err)
 		return err
@@ -59,17 +61,18 @@ func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
 }
 
 func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
-	err = d.client.ServiceCheck(
-		&statsd.ServiceCheck{
-			Name:     serviceCheckName,
-			Status:   statsd.Critical,
-			Message:  "Job failed",
-			Hostname: hostName,
-			Tags: []string{
-				"job_name:" + jobInfo.getJobName(),
-				"namespace:" + jobInfo.Namespace,
-			},
-		})
+	sc := &statsd.ServiceCheck{
+		Name:     serviceCheckName,
+		Status:   statsd.Critical,
+		Message:  "Job failed",
+		Hostname: hostName,
+		Tags: []string{
+			"job_name:" + jobInfo.getJobName(),
+			"namespace:" + jobInfo.Namespace,
+		},
+	}
+	err = d.client.ServiceCheck(sc)
+	klog.Infof("Debug service check: %v", sc)
 	if err != nil {
 		klog.Errorf("Failed subscribe custom event. error: %v", err)
 		return err
