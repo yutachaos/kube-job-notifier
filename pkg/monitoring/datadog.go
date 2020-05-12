@@ -8,7 +8,7 @@ import (
 
 const (
 	hostName         = "kube-job-notifier"
-	serviceCheckName = "kube_job_notifier.cronjob.status"
+	serviceCheckName = "kube_job_notifier.job.status"
 )
 
 type datadog struct {
