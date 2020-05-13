@@ -22,10 +22,10 @@ func newDatadog() datadog {
 		klog.Errorf("Failed create statsd client. error: %v", err)
 	}
 
-	tags := []string{os.Getenv("DD_TAGS")}
+	tags := os.Getenv("DD_TAGS")
 
-	if len(tags) != 0 {
-		client.Tags = tags
+	if tags != "" {
+		client.Tags = []string{tags}
 	}
 
 	namespace := os.Getenv("DD_NAMESPACE")

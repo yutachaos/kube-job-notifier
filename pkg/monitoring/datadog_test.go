@@ -20,5 +20,5 @@ func TestNewDatadog(t *testing.T) {
 
 	actual = newDatadog()
 	assert.Empty(t, actual.client.Namespace)
-	assert.Empty(t, actual.client.Tags)
+	assert.Equal(t, []string{}, actual.client.Tags)
 }
