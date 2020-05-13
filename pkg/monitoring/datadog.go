@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	DefaultStatsAddrUDS = "unix:///var/run/datadog/dsd.socket"
+	defaultStatsAddrUDS = "unix:///var/run/datadog/dsd.socket"
 	hostName            = "kube-job-notifier"
 	serviceCheckName    = "kube_job_notifier.job.status"
 )
@@ -17,7 +17,7 @@ type datadog struct {
 }
 
 func newDatadog() datadog {
-	client, err := statsd.New(DefaultStatsAddrUDS)
+	client, err := statsd.New(defaultStatsAddrUDS)
 	if err != nil {
 		klog.Errorf("Failed create statsd client. error: %v", err)
 	}

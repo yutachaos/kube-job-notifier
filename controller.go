@@ -309,18 +309,20 @@ func getPodFromJobName(kubeclientset kubernetes.Interface, job *batchv1.Job) (co
 	if err != nil {
 		return corev1.Pod{}, err
 	}
+	if jobPodList.Size() == 0 {
+		return corev1.Pod{}, err
+	}
 	jobPod := jobPodList.Items[0]
-	return jobPod, err
+	return jobPod, nil
 }
 
 func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batchv1.Job) (v1beta1.CronJob, error) {
 
-	ownerReferences, ok := funk.Filter(job.OwnerReferences,
+	if ownerReferences, ok := funk.Filter(job.OwnerReferences,
 		func(ownerReference metav1.OwnerReference) bool {
 			return ownerReference.Kind == "CronJob"
-		}).([]metav1.OwnerReference)
-
-	if ok && len(ownerReferences) > 0 {
+		}).([]metav1.OwnerReference); ok &&
+		len(ownerReferences) > 0 {
 		cronJob, err := kubeclientset.BatchV1beta1().CronJobs(job.Namespace).Get(
 			ownerReferences[0].Name,
 			metav1.GetOptions{
