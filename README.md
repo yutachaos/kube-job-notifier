@@ -17,6 +17,10 @@ export SLACK_FAILED_CHANNEL=YOUR_NOTIFICATION_CHANNEL_ID # OPTIONAL
 export NAMESPACE=KUBERNETES_NAMESPACE # OPTIONAL
 ```
 
+### Event subscription setting(Current Datadog support only)
+- Datadog service checks are sent when the Job succeeds or fails.
+- More information https://docs.datadoghq.com/developers/service_checks/dogstatsd_service_checks_submission/
+
 ### Run
 `go run *.go -kubeconfig {YOUR_KUBECONFIG_PATH}`
  

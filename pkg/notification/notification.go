@@ -1,9 +1,10 @@
 package notification
 
 type MessageTemplateParam struct {
-	JobName   string
-	Namespace string
-	Log       string
+	JobName     string
+	CronJobName string
+	Namespace   string
+	Log         string
 }
 
 type Notification interface {

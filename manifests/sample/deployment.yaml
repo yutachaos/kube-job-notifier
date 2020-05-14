@@ -15,8 +15,22 @@ spec:
         app: kube-job-notifier
     spec:
       serviceAccountName: jobview
+      # If you want to set the Datadog event status.
+      # Start
+      volumes:
+        - hostPath:
+            path: /var/run/datadog/
+          name: dsdsocket
+      # End
       containers:
         - name: kube-job-notifier
+          # If you want to set the Datadog event status.
+          # Start
+          volumeMounts:
+            - name: dsdsocket
+              mountPath: /var/run/datadog
+              readOnly: true
+          # End
           image: yutachaos/kube-job-notifier:v0.0.5
           env:
             - name: SLACK_TOKEN
@@ -27,3 +41,5 @@ spec:
               value: "YOUR NOTIFICATION SLACK CHANNEL ID FOR SUCCESS"
             - name: SLACK_FAILED_CHANNEL
               value: "YOUR NOTIFICATION SLACK CHANNEL ID FOR FAILED"
+            - name: DATADOG_ENABLE
+              value: true
