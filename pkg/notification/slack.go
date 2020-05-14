@@ -15,7 +15,7 @@ const (
 	FAILED               = "failed"
 	SlackMessageTemplate = `
 {{if .CronJobName}} *CronJobName*: {{.CronJobName}} {{end}}
-*JobName*: {{.JobName}}
+ *JobName*: {{.JobName}}
 {{if .Namespace}} *Namespace*: {{.Namespace}} {{end}}
 {{if .Log }} *Loglink*: {{.Log}} {{end}}
 `

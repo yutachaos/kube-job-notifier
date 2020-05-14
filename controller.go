@@ -77,8 +77,16 @@ func NewController(
 			klog.Infof("Job Added: %v", newJob.Status)
 			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
 				klog.Infof("Job started: %v", newJob.Status)
+
+				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+
+				if err != nil {
+					klog.Errorf("Get cronjob failed: %v", err)
+				}
 				messageParam := notification.MessageTemplateParam{
-					JobName: newJob.Name,
+					CronJobName: cronJob.Name,
+					JobName:     newJob.Name,
+					Namespace:   newJob.Namespace,
 				}
 				for name, n := range notifications {
 					err := n.NotifyStart(messageParam)
