@@ -41,13 +41,18 @@ func main() {
 			klog.Fatalf("Error building in cluster kubeclient: %s", err.Error())
 		}
 	}
-	// Sync event only
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 
 	// Specified namespace
 	namespace := os.Getenv("NAMESPACE")
+	var kubeInformerFactory kubeinformers.SharedInformerFactory
+	// Sync event only
+	if namespace == "" {
+		kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
+	} else {
+		kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace), nil)
+	}
 
-	controller := NewController(kubeClient, namespace, kubeInformerFactory.Batch().V1().Jobs())
+	controller := NewController(kubeClient, kubeInformerFactory.Batch().V1().Jobs())
 
 	kubeInformerFactory.Start(stopCh)
 

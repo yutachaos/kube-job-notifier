@@ -49,13 +49,12 @@ type Controller struct {
 // NewController returns a new controller
 func NewController(
 	kubeclientset kubernetes.Interface,
-	namespace string,
 	jobInformer batchesinformers.JobInformer) *Controller {
 
 	utilruntime.Must(scheme.AddToScheme(scheme.Scheme))
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
-	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events(namespace)})
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &Controller{
