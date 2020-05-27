@@ -83,9 +83,10 @@ func NewController(
 					klog.Errorf("Get cronjob failed: %v", err)
 				}
 				messageParam := notification.MessageTemplateParam{
-					CronJobName: cronJob.Name,
 					JobName:     newJob.Name,
+					CronJobName: cronJob.Name,
 					Namespace:   newJob.Namespace,
+					StartTime:   newJob.Status.StartTime,
 				}
 				for name, n := range notifications {
 					err := n.NotifyStart(messageParam)
@@ -121,10 +122,12 @@ func NewController(
 				}
 
 				messageParam := notification.MessageTemplateParam{
-					CronJobName: cronJob.Name,
-					JobName:     newJob.Name,
-					Log:         jobLogStr,
-					Namespace:   newJob.Namespace,
+					JobName:        newJob.Name,
+					CronJobName:    cronJob.Name,
+					Namespace:      newJob.Namespace,
+					StartTime:      newJob.Status.StartTime,
+					CompletionTime: newJob.Status.CompletionTime,
+					Log:            jobLogStr,
 				}
 
 				for name, n := range notifications {
@@ -166,10 +169,12 @@ func NewController(
 				}
 
 				messageParam := notification.MessageTemplateParam{
-					CronJobName: cronJob.Name,
-					JobName:     newJob.Name,
-					Log:         jobLogStr,
-					Namespace:   newJob.Namespace,
+					JobName:        newJob.Name,
+					CronJobName:    cronJob.Name,
+					Namespace:      newJob.Namespace,
+					StartTime:      newJob.Status.StartTime,
+					CompletionTime: newJob.Status.CompletionTime,
+					Log:            jobLogStr,
 				}
 				for name, n := range notifications {
 					err := n.NotifyFailed(messageParam)
