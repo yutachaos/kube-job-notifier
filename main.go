@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/yutachaos/kube-job-notifier/pkg/signals"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -44,12 +45,13 @@ func main() {
 
 	// Specified namespace
 	namespace := os.Getenv("NAMESPACE")
+	fmt.Println(namespace)
 	var kubeInformerFactory kubeinformers.SharedInformerFactory
 	// Sync event only
 	if namespace == "" {
 		kubeInformerFactory = kubeinformers.NewSharedInformerFactory(kubeClient, 0)
 	} else {
-		kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace), nil)
+		kubeInformerFactory = kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithNamespace(namespace))
 	}
 
 	controller := NewController(kubeClient, kubeInformerFactory.Batch().V1().Jobs())
