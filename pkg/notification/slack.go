@@ -17,7 +17,11 @@ const (
 {{if .CronJobName}} *CronJobName*: {{.CronJobName}} {{end}}
  *JobName*: {{.JobName}}
 {{if .Namespace}} *Namespace*: {{.Namespace}} {{end}}
+{{if .StartTime }} *StartTime*: {{.StartTime.Format "Jan 02, 2006 15:04:05 UTC"}} {{end}}
+{{if .CompletionTime }} *CompletionTime*: {{.CompletionTime.Format "Jan 02, 2006 15:04:05 UTC"}} {{end}}
+{{if .ExecutionTime }} *ExecutionTime*: {{.ExecutionTime}} {{end}}
 {{if .Log }} *Loglink*: {{.Log}} {{end}}
+
 `
 )
 
@@ -106,6 +110,9 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 		messageParam.Log = file.Permalink
 	}
 
+	if messageParam.StartTime != nil && messageParam.CompletionTime != nil {
+		messageParam.ExecutionTime = messageParam.CompletionTime.Sub(messageParam.StartTime.Time)
+	}
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
@@ -137,7 +144,9 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 		}
 		messageParam.Log = file.Permalink
 	}
-
+	if messageParam.StartTime != nil && messageParam.CompletionTime != nil {
+		messageParam.ExecutionTime = messageParam.CompletionTime.Sub(messageParam.StartTime.Time)
+	}
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)

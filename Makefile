@@ -14,4 +14,4 @@ lint:
 
 push_image:
 	docker build -t yutachaos/kube-job-notifier:$(REVISION) .
-    docker push yutachaos/kube-job-notifier:$(REVISION)
+	docker push yutachaos/kube-job-notifier:$(REVISION)
