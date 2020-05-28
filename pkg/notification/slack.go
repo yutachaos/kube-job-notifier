@@ -13,15 +13,13 @@ const (
 	SUCCESS              = "success"
 	FAILED               = "failed"
 	SlackMessageTemplate = `
-{{if .CronJobName}} *CronJobName*: {{.CronJobName}} {{end}}
+{{if .CronJobName}} *CronJobName*: {{.CronJobName}}{{end}}
  *JobName*: {{.JobName}}
-{{if .Namespace}} *Namespace*: {{.Namespace}} {{end}}
-{{if .StartTime }} *StartTime*: {{.StartTime.Format "2006/1/2 15:04:05 UTC"}} {{end}}
-{{if .CompletionTime }} *CompletionTime*: {{.CompletionTime.Format "2006/1/2 15:04:05 UTC"}} {{end}}
-{{if .ExecutionTime }} *ExecutionTime*: {{.ExecutionTime}} {{end}}
-{{if .Log }} *Loglink*: {{.Log}} {{end}}
-
-`
+{{if .Namespace}} *Namespace*: {{.Namespace}}{{end}}
+{{if .StartTime }} *StartTime*: {{.StartTime.Format "2006/1/2 15:04:05 UTC"}}{{end}}
+{{if .CompletionTime }} *CompletionTime*: {{.CompletionTime.Format "2006/1/2 15:04:05 UTC"}}{{end}}
+{{if .ExecutionTime }} *ExecutionTime*: {{.ExecutionTime}}{{end}}
+{{if .Log }} *Loglink*: {{.Log}}{{end}}`
 )
 
 var slackColors = map[string]string{

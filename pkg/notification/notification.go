@@ -24,7 +24,7 @@ func (m MessageTemplateParam) calculateExecutionTime() (completionTime *metav1.T
 		}
 		executionTime = completionTime.Sub(m.StartTime.Time)
 	}
-	return
+	return completionTime, executionTime.Truncate(time.Second)
 }
 
 type Notification interface {
