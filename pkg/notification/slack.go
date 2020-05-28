@@ -2,11 +2,10 @@ package notification
 
 import (
 	"bytes"
-	"html/template"
-	"os"
-
 	slackapi "github.com/slack-go/slack"
+	"html/template"
 	"k8s.io/klog"
+	"os"
 )
 
 const (
@@ -110,9 +109,8 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 		messageParam.Log = file.Permalink
 	}
 
-	if messageParam.StartTime != nil && messageParam.CompletionTime != nil {
-		messageParam.ExecutionTime = messageParam.CompletionTime.Sub(messageParam.StartTime.Time)
-	}
+	messageParam.CompletionTime, messageParam.ExecutionTime = messageParam.calculateExecutionTime()
+
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
@@ -144,9 +142,9 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 		}
 		messageParam.Log = file.Permalink
 	}
-	if messageParam.StartTime != nil && messageParam.CompletionTime != nil {
-		messageParam.ExecutionTime = messageParam.CompletionTime.Sub(messageParam.StartTime.Time)
-	}
+
+	messageParam.CompletionTime, messageParam.ExecutionTime = messageParam.calculateExecutionTime()
+
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)

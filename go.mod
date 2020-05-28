@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/DataDog/datadog-go v3.7.0+incompatible
+	github.com/Songmu/flextime v0.0.6
 	github.com/slack-go/slack v0.6.3
 	github.com/stretchr/testify v1.4.0
 	github.com/thoas/go-funk v0.6.0
