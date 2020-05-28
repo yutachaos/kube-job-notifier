@@ -77,7 +77,7 @@ func TestGetSlackMessage(t *testing.T) {
 	assert.Equal(t, expect, actual)
 
 	mockTime = time.Date(2020, 11, 28, 1, 2, 3, 123456000, time.UTC).
-		Add(1*time.Hour + 30*time.Minute)
+		Add(1*time.Hour + 30*time.Minute + 1*time.Millisecond)
 
 	restore = flextime.Set(mockTime)
 	defer restore()
