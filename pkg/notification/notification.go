@@ -22,7 +22,7 @@ func (m MessageTemplateParam) calculateExecutionTime() (completionTime *metav1.T
 		if completionTime == nil {
 			completionTime = &metav1.Time{Time: flextime.Now()}
 		}
-		executionTime = completionTime.Sub(m.StartTime.Time).Truncate(time.Second)
+		executionTime = completionTime.Sub(m.StartTime.Time)
 	}
 	return
 }

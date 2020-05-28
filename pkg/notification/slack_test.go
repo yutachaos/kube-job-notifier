@@ -70,8 +70,9 @@ func TestGetSlackMessage(t *testing.T) {
 
 	fmt.Println(actual)
 
-	mockTime = time.Date(2020, 11, 28, 1, 2, 3, 123456000, time.UTC)
+	mockTime = time.Date(2020, 11, 28, 1, 2, 3, 123456000, time.UTC).Add(1 * time.Hour)
 	restore = flextime.Set(mockTime)
+	defer restore()
 
 	input = MessageTemplateParam{
 		JobName:        "Job",
