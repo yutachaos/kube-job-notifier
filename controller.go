@@ -158,7 +158,6 @@ func NewController(
 					klog.Errorf("Get pods failed: %v", err)
 				}
 				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
-				klog.Infof("Debug cronjob name: %s", cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
 				}

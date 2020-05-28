@@ -2,11 +2,10 @@ package notification
 
 import (
 	"bytes"
-	"html/template"
-	"os"
-
 	slackapi "github.com/slack-go/slack"
+	"html/template"
 	"k8s.io/klog"
+	"os"
 )
 
 const (
@@ -14,15 +13,13 @@ const (
 	SUCCESS              = "success"
 	FAILED               = "failed"
 	SlackMessageTemplate = `
-{{if .CronJobName}} *CronJobName*: {{.CronJobName}} {{end}}
+{{if .CronJobName}} *CronJobName*: {{.CronJobName}}{{end}}
  *JobName*: {{.JobName}}
-{{if .Namespace}} *Namespace*: {{.Namespace}} {{end}}
-{{if .StartTime }} *StartTime*: {{.StartTime.Format "2006/1/2 15:04:05 UTC"}} {{end}}
-{{if .CompletionTime }} *CompletionTime*: {{.CompletionTime.Format "2006/1/2 15:04:05 UTC"}} {{end}}
-{{if .ExecutionTime }} *ExecutionTime*: {{.ExecutionTime}} {{end}}
-{{if .Log }} *Loglink*: {{.Log}} {{end}}
-
-`
+{{if .Namespace}} *Namespace*: {{.Namespace}}{{end}}
+{{if .StartTime }} *StartTime*: {{.StartTime.Format "2006/1/2 15:04:05 UTC"}}{{end}}
+{{if .CompletionTime }} *CompletionTime*: {{.CompletionTime.Format "2006/1/2 15:04:05 UTC"}}{{end}}
+{{if .ExecutionTime }} *ExecutionTime*: {{.ExecutionTime}}{{end}}
+{{if .Log }} *Loglink*: {{.Log}}{{end}}`
 )
 
 var slackColors = map[string]string{
@@ -110,9 +107,8 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 		messageParam.Log = file.Permalink
 	}
 
-	if messageParam.StartTime != nil && messageParam.CompletionTime != nil {
-		messageParam.ExecutionTime = messageParam.CompletionTime.Sub(messageParam.StartTime.Time)
-	}
+	messageParam.CompletionTime, messageParam.ExecutionTime = messageParam.calculateExecutionTime()
+
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)
@@ -144,9 +140,9 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 		}
 		messageParam.Log = file.Permalink
 	}
-	if messageParam.StartTime != nil && messageParam.CompletionTime != nil {
-		messageParam.ExecutionTime = messageParam.CompletionTime.Sub(messageParam.StartTime.Time)
-	}
+
+	messageParam.CompletionTime, messageParam.ExecutionTime = messageParam.calculateExecutionTime()
+
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
 		klog.Errorf("Template execute failed %s\n", err)

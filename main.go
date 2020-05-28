@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/yutachaos/kube-job-notifier/pkg/signals"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -45,7 +44,6 @@ func main() {
 
 	// Specified namespace
 	namespace := os.Getenv("NAMESPACE")
-	fmt.Println(namespace)
 	var kubeInformerFactory kubeinformers.SharedInformerFactory
 	// Sync event only
 	if namespace == "" {
