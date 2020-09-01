@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	batcheslisters "k8s.io/client-go/listers/batch/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -116,7 +117,6 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
 				}
-
 				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
@@ -354,7 +354,14 @@ func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batc
 }
 
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) (string, error) {
-	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: cronJobName})
+	var req *rest.Request
+	// OwnerRefereceがCronJobではない場合cronJobNameが空になる
+	if cronJobName == "" {
+		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
+	} else {
+		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: cronJobName})
+	}
+
 	podLogs, err := req.Stream()
 	if err != nil {
 		return "", xerrors.Errorf("error in open log stream: %v", err)
