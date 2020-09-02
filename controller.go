@@ -3,11 +3,14 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
+	"time"
+
 	"github.com/thoas/go-funk"
 	"github.com/yutachaos/kube-job-notifier/pkg/monitoring"
 	"github.com/yutachaos/kube-job-notifier/pkg/notification"
 	"golang.org/x/xerrors"
-	"io"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,12 +24,11 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	batcheslisters "k8s.io/client-go/listers/batch/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	"os"
-	"time"
 )
 
 const (
@@ -115,8 +117,7 @@ func NewController(
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
 				}
-
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod)
+				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
 				}
@@ -162,7 +163,7 @@ func NewController(
 					klog.Errorf("Get cronjob failed: %v", err)
 				}
 
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod)
+				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
 				}
@@ -352,8 +353,15 @@ func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batc
 	return v1beta1.CronJob{}, nil
 }
 
-func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod) (string, error) {
-	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
+func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) (string, error) {
+	var req *rest.Request
+	// OwnerRefereceがCronJobではない場合cronJobNameが空になる
+	if cronJobName == "" {
+		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
+	} else {
+		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: cronJobName})
+	}
+
 	podLogs, err := req.Stream()
 	if err != nil {
 		return "", xerrors.Errorf("error in open log stream: %v", err)
