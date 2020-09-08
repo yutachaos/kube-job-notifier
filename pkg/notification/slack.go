@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"k8s.io/klog"
 	"os"
+	"reflect"
 )
 
 const (
@@ -56,6 +57,10 @@ func newSlack() slack {
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
 
+	if !isNotifyFromEnv(os.Getenv("SLACK_STARTED_NOTIFY")) {
+		return nil
+	}
+
 	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
 	if succeedChannel != "" {
 		s.channel = succeedChannel
@@ -94,6 +99,11 @@ func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, er
 }
 
 func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
+
+	if !isNotifyFromEnv(os.Getenv("SLACK_SUCCEEDED_NOTIFY")) {
+		return nil
+	}
+
 	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
 	if succeedChannel != "" {
 		s.channel = succeedChannel
@@ -128,6 +138,11 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 }
 
 func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
+
+	if !isNotifyFromEnv(os.Getenv("SLACK_FAILED_NOTIFY")) {
+		return nil
+	}
+
 	failedChannel := os.Getenv("SLACK_FAILED_CHANNEL")
 	if failedChannel != "" {
 		s.channel = failedChannel
@@ -195,4 +210,13 @@ func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err e
 
 	klog.Infof("File uploadLog successfully %s", file.Name)
 	return
+}
+
+func isNotifyFromEnv(value string) bool {
+	isNotify := reflect.ValueOf(value)
+	switch isNotify.Kind() {
+	case reflect.Bool:
+		return isNotify.Bool()
+	}
+	return true
 }
