@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"k8s.io/klog"
 	"os"
-	"reflect"
 )
 
 const (
@@ -57,7 +56,7 @@ func newSlack() slack {
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
 
-	if !isNotifyFromEnv(os.Getenv("SLACK_STARTED_NOTIFY")) {
+	if !isNotifyFromEnv("SLACK_STARTED_NOTIFY") {
 		return nil
 	}
 
@@ -100,7 +99,7 @@ func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, er
 
 func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 
-	if !isNotifyFromEnv(os.Getenv("SLACK_SUCCEEDED_NOTIFY")) {
+	if !isNotifyFromEnv("SLACK_SUCCEEDED_NOTIFY") {
 		return nil
 	}
 
@@ -139,7 +138,7 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 
 func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 
-	if !isNotifyFromEnv(os.Getenv("SLACK_FAILED_NOTIFY")) {
+	if !isNotifyFromEnv("SLACK_FAILED_NOTIFY") {
 		return nil
 	}
 
@@ -212,11 +211,10 @@ func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err e
 	return
 }
 
-func isNotifyFromEnv(value string) bool {
-	isNotify := reflect.ValueOf(value)
-	switch isNotify.Kind() {
-	case reflect.Bool:
-		return isNotify.Bool()
+func isNotifyFromEnv(key string) bool {
+	value := os.Getenv(key)
+	if value == "false" {
+		return false
 	}
 	return true
 }
