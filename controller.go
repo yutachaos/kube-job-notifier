@@ -34,7 +34,7 @@ import (
 const (
 	controllerAgentName = "cronjob-controller"
 	intTrue             = 1
-	searchLabel         = "job-name"
+	searchLabel         = "controller-uid"
 )
 
 var serverStartTime time.Time
@@ -108,7 +108,7 @@ func NewController(
 			klog.Infof("newJob.Status:%v", newJob.Status)
 			if newJob.Status.Succeeded == intTrue {
 				klog.Infof("Job succeeded: %v", newJob.Status)
-				jobPod, err := getPodFromJobName(kubeclientset, newJob)
+				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
 				}
@@ -154,7 +154,7 @@ func NewController(
 
 			} else if newJob.Status.Failed == intTrue {
 				klog.Infof("Job failed: %v", newJob.Status)
-				jobPod, err := getPodFromJobName(kubeclientset, newJob)
+				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
 				}
@@ -312,8 +312,8 @@ func (c *Controller) handleObject(obj interface{}) {
 	return
 }
 
-func getPodFromJobName(kubeclientset kubernetes.Interface, job *batchv1.Job) (corev1.Pod, error) {
-	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{searchLabel: job.Name}}
+func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Job) (corev1.Pod, error) {
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{searchLabel: string(job.OwnerReferences[0].UID)}}
 	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
 		Limit:         1,
@@ -355,7 +355,7 @@ func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batc
 
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) (string, error) {
 	var req *rest.Request
-	// OwnerRefereceがCronJobではない場合cronJobNameが空になる
+	// OwnerReferenceがCronJobではない場合cronJobNameが空になる
 	if cronJobName == "" {
 		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
 	} else {
