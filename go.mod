@@ -1,6 +1,6 @@
 module github.com/yutachaos/kube-job-notifier
 
-go 1.14
+go 1.15
 
 require (
 	github.com/DataDog/datadog-go v3.7.0+incompatible

@@ -1,3 +1,4 @@
+REPOSITORY=yutachaos
 REVISION =$(shell git rev-parse HEAD | head -c 8)
 
 .PHONY: test
@@ -13,5 +14,5 @@ lint:
 	golangci-lint run
 
 push_image:
-	docker build -t yutachaos/kube-job-notifier:$(REVISION) .
-	docker push yutachaos/kube-job-notifier:$(REVISION)
+	docker build -t ${REPOSITORY}/kube-job-notifier:$(REVISION) .
+	docker push ${REPOSITORY}/kube-job-notifier:$(REVISION)
