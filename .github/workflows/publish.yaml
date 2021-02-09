@@ -28,7 +28,6 @@ jobs:
         with:
           images: yutachaos/kube-job-notifier
           tag-match: v(.*)
-          tag-latest: false
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
