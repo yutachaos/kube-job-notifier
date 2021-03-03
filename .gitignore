@@ -143,3 +143,5 @@ Temporary Items
 
 # direnv
 .envrc
+
+*.tgz
