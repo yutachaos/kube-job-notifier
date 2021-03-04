@@ -8,7 +8,9 @@ For kubernetes job notification tool
 
 ### Notification setting(Slack only)
 - Please set environment variable
-```bash
+
+
+```
 export SLACK_TOKEN=YOUR_SLACK_TOKEN
 export SLACK_CHANNEL=YOUR_NOTIFICATION_CHANNEL_ID
 export SLACK_STARTED_NOTIFY=true # OPTIONAL DEFAULT true
@@ -33,6 +35,7 @@ export NAMESPACE=KUBERNETES_NAMESPACE # OPTIONAL
 `go run *.go -kubeconfig {YOUR_KUBECONFIG_PATH}`
  
 #### Kubernetes
+
 - Run your kubernetes cluster.(Note default namespace is `default`). If change apply namespace, please edit manifest.
 - Setting SLACK_TOKEN and SLACK_CHANNEL in manifest/sample/deployment.yaml.
 - Apply manifest
@@ -43,3 +46,8 @@ kubectl get po
 NAME                                            READY   STATUS    RESTARTS   AGE
 kube-job-notifier-deployment-698fbc8b54-ffk2q   1/1     Running   0          8m12s
 ```
+
+
+#### Install with Helm
+`helm repo add kube-job-notifier https://yutachaos.github.io/kube-job-notifier/`
+`helm install kube-job-notifier/kube-job-notifier --generate-name`
