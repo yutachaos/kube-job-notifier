@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/added_publish_helm_chart_action
     paths:
       - 'charts/**'
       - '.github/**'
