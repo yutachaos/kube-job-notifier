@@ -1,0 +1,24 @@
+apiVersion: v1
+entries:
+  kube-job-notifier:
+    - apiVersion: v2
+      appVersion: v0.0.15
+      created: "2021-03-04T01:55:24.131528553Z"
+      description: A Helm chart for Kubernetes
+      digest: 5101d56b2ad901d06160cf3e895b3366e03d48b798ec1aed7f201b39155fb1d2
+      name: kube-job-notifier
+      type: application
+      urls:
+        - https://github.com/yutachaos/kube-job-notifier/releases/download/kube-job-notifier-0.1.1/kube-job-notifier-0.1.1.tgz
+      version: 0.1.1
+    - apiVersion: v2
+      appVersion: v0.0.14
+      created: "2021-03-04T01:48:53.008570714Z"
+      description: A Helm chart for Kubernetes
+      digest: d69c8d8bd0983b0ca53c6d40782590c2743c95e7f756bedadb03f75acbb119f3
+      name: kube-job-notifier
+      type: application
+      urls:
+        - https://github.com/yutachaos/kube-job-notifier/releases/download/kube-job-notifier-0.1.0/kube-job-notifier-0.1.0.tgz
+      version: 0.1.0
+generated: "2021-03-04T01:48:52.899448956Z"
