@@ -58,7 +58,6 @@ jobs:
   publish-chart:
 
     runs-on: ubuntu-latest
-    needs: lint-chart
 
     steps:
       - name: Checkout
