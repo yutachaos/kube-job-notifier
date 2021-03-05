@@ -324,10 +324,6 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 	if jobPodList.Size() == 0 {
 		return corev1.Pod{}, err
 	}
-	if len(jobPodList.Items) == 0 {
-		return corev1.Pod{}, err
-	}
-
 	jobPod := jobPodList.Items[0]
 	return jobPod, nil
 }
