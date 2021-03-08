@@ -106,94 +106,97 @@ func NewController(
 
 			klog.Infof("oldJob.Status:%v", oldJob.Status)
 			klog.Infof("newJob.Status:%v", newJob.Status)
-			if newJob.Status.Succeeded == intTrue {
-				klog.Infof("Job succeeded: %v", newJob.Status)
-				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
-				if err != nil {
-					klog.Errorf("Get pods failed: %v", err)
-				}
-				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
 
-				if err != nil {
-					klog.Errorf("Get cronjob failed: %v", err)
-				}
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
-				if err != nil {
-					klog.Errorf("Get pods log failed: %v", err)
-				}
-
-				messageParam := notification.MessageTemplateParam{
-					JobName:        newJob.Name,
-					CronJobName:    cronJob.Name,
-					Namespace:      newJob.Namespace,
-					StartTime:      newJob.Status.StartTime,
-					CompletionTime: newJob.Status.CompletionTime,
-					Log:            jobLogStr,
-				}
-
-				for name, n := range notifications {
-					err = n.NotifySuccess(messageParam)
+				if newJob.Status.Succeeded == intTrue {
+					klog.Infof("Job succeeded: %v", newJob.Status)
+					jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 					if err != nil {
-						klog.Errorf("Failed %s n: %v", name, err)
+						klog.Errorf("Get pods failed: %v", err)
 					}
-				}
+					cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
 
-				if os.Getenv("DATADOG_ENABLE") == "true" {
-
-					err = datadogSubscription.SuccessEvent(
-						monitoring.JobInfo{
-							CronJobName: cronJob.Name,
-							Name:        newJob.Name,
-							Namespace:   newJob.Namespace,
-						})
 					if err != nil {
-						klog.Errorf("Fail event subscribe.: %v", err)
+						klog.Errorf("Get cronjob failed: %v", err)
 					}
-				}
-				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-
-			} else if newJob.Status.Failed == intTrue {
-				klog.Infof("Job failed: %v", newJob.Status)
-				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
-				if err != nil {
-					klog.Errorf("Get pods failed: %v", err)
-				}
-				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
-				if err != nil {
-					klog.Errorf("Get cronjob failed: %v", err)
-				}
-
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
-				if err != nil {
-					klog.Errorf("Get pods log failed: %v", err)
-				}
-
-				messageParam := notification.MessageTemplateParam{
-					JobName:        newJob.Name,
-					CronJobName:    cronJob.Name,
-					Namespace:      newJob.Namespace,
-					StartTime:      newJob.Status.StartTime,
-					CompletionTime: newJob.Status.CompletionTime,
-					Log:            jobLogStr,
-				}
-				for name, n := range notifications {
-					err := n.NotifyFailed(messageParam)
+					jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 					if err != nil {
-						klog.Errorf("Failed %s notification: %v", name, err)
+						klog.Errorf("Get pods log failed: %v", err)
 					}
-				}
-				if os.Getenv("DATADOG_ENABLE") == "true" {
-					err = datadogSubscription.FailEvent(
-						monitoring.JobInfo{
-							CronJobName: cronJob.Name,
-							Name:        newJob.Name,
-							Namespace:   newJob.Namespace,
-						})
+
+					messageParam := notification.MessageTemplateParam{
+						JobName:        newJob.Name,
+						CronJobName:    cronJob.Name,
+						Namespace:      newJob.Namespace,
+						StartTime:      newJob.Status.StartTime,
+						CompletionTime: newJob.Status.CompletionTime,
+						Log:            jobLogStr,
+					}
+
+					for name, n := range notifications {
+						err = n.NotifySuccess(messageParam)
+						if err != nil {
+							klog.Errorf("Failed %s n: %v", name, err)
+						}
+					}
+
+					if os.Getenv("DATADOG_ENABLE") == "true" {
+
+						err = datadogSubscription.SuccessEvent(
+							monitoring.JobInfo{
+								CronJobName: cronJob.Name,
+								Name:        newJob.Name,
+								Namespace:   newJob.Namespace,
+							})
+						if err != nil {
+							klog.Errorf("Fail event subscribe.: %v", err)
+						}
+					}
+					klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
+
+				} else if newJob.Status.Failed == intTrue {
+					klog.Infof("Job failed: %v", newJob.Status)
+					jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 					if err != nil {
-						klog.Errorf("Fail event subscribe.: %v", err)
+						klog.Errorf("Get pods failed: %v", err)
 					}
+					cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+					if err != nil {
+						klog.Errorf("Get cronjob failed: %v", err)
+					}
+
+					jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
+					if err != nil {
+						klog.Errorf("Get pods log failed: %v", err)
+					}
+
+					messageParam := notification.MessageTemplateParam{
+						JobName:        newJob.Name,
+						CronJobName:    cronJob.Name,
+						Namespace:      newJob.Namespace,
+						StartTime:      newJob.Status.StartTime,
+						CompletionTime: newJob.Status.CompletionTime,
+						Log:            jobLogStr,
+					}
+					for name, n := range notifications {
+						err := n.NotifyFailed(messageParam)
+						if err != nil {
+							klog.Errorf("Failed %s notification: %v", name, err)
+						}
+					}
+					if os.Getenv("DATADOG_ENABLE") == "true" {
+						err = datadogSubscription.FailEvent(
+							monitoring.JobInfo{
+								CronJobName: cronJob.Name,
+								Name:        newJob.Name,
+								Namespace:   newJob.Namespace,
+							})
+						if err != nil {
+							klog.Errorf("Fail event subscribe.: %v", err)
+						}
+					}
+					klog.V(4).Infof("Job failed log: %v", jobLogStr)
 				}
-				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
 			controller.handleObject(new)
 		},
@@ -322,10 +325,10 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 		return corev1.Pod{}, err
 	}
 	if jobPodList.Size() == 0 {
-		return corev1.Pod{}, err
+		return corev1.Pod{}, xerrors.Errorf("Failed get pod list JobPodListSize: %v", jobPodList.Size())
 	}
 	if len(jobPodList.Items) == 0 {
-		return corev1.Pod{}, err
+		return corev1.Pod{}, xerrors.Errorf("Failed get pod list jobPodList.Items): %v", jobPodList.Items)
 	}
 
 	jobPod := jobPodList.Items[0]
