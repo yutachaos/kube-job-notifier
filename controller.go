@@ -61,6 +61,7 @@ func NewController(
 		recorder:   recorder,
 	}
 	serverStartTime = time.Now().Local()
+	notifiedJobs := make(map[string]bool)
 
 	notifications := notification.NewNotifications()
 	subscriptions := monitoring.NewSubscription()
@@ -71,28 +72,35 @@ func NewController(
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
 			klog.Infof("Job Added: %v", newJob.Status)
-			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
-				klog.Infof("Job started: %v", newJob.Status)
 
-				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
-
-				if err != nil {
-					klog.Errorf("Get cronjob failed: %v", err)
-				}
-				messageParam := notification.MessageTemplateParam{
-					JobName:     newJob.Name,
-					CronJobName: cronJob.Name,
-					Namespace:   newJob.Namespace,
-					StartTime:   newJob.Status.StartTime,
-				}
-				for name, n := range notifications {
-					err := n.NotifyStart(messageParam)
-					if err != nil {
-						klog.Errorf("Failed %s notification: %v", name, err)
-					}
-				}
-
+			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
+				return
 			}
+
+			if notifiedJobs[newJob.Name] == true {
+				return
+			}
+
+			klog.Infof("Job started: %v", newJob.Status)
+
+			cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+
+			if err != nil {
+				klog.Errorf("Get cronjob failed: %v", err)
+			}
+			messageParam := notification.MessageTemplateParam{
+				JobName:     newJob.Name,
+				CronJobName: cronJob.Name,
+				Namespace:   newJob.Namespace,
+				StartTime:   newJob.Status.StartTime,
+			}
+			for name, n := range notifications {
+				err := n.NotifyStart(messageParam)
+				if err != nil {
+					klog.Errorf("Failed %s notification: %v", name, err)
+				}
+			}
+
 		},
 		UpdateFunc: func(old, new interface{}) {
 			newJob := new.(*batchv1.Job)
@@ -100,6 +108,13 @@ func NewController(
 
 			klog.Infof("oldJob.Status:%v", oldJob.Status)
 			klog.Infof("newJob.Status:%v", newJob.Status)
+			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
+				return
+			}
+			if notifiedJobs[newJob.Name] == true {
+				return
+			}
+
 			if newJob.Status.Succeeded == intTrue {
 				klog.Infof("Job succeeded: %v", newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
@@ -148,7 +163,7 @@ func NewController(
 					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-
+				notifiedJobs[newJob.Name] = true
 			} else if newJob.Status.Failed == intTrue {
 				klog.Infof("Job failed: %v", newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
@@ -194,8 +209,10 @@ func NewController(
 						klog.Errorf("Fail event subscribe.: %v", err)
 					}
 				}
+				notifiedJobs[newJob.Name] = true
 				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
+
 		},
 	})
 
