@@ -213,6 +213,9 @@ func NewController(
 				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
 
+		}, DeleteFunc: func(obj interface{}) {
+			deletedJob := obj.(*batchv1.Job)
+			delete(notifiedJobs, deletedJob.Name)
 		},
 	})
 
