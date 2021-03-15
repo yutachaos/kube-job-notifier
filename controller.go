@@ -14,11 +14,9 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	batchesinformers "k8s.io/client-go/informers/batch/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -27,7 +25,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 )
 
@@ -44,7 +41,6 @@ type Controller struct {
 	kubeclientset kubernetes.Interface
 	jobsLister    batcheslisters.JobLister
 	jobsSynced    cache.InformerSynced
-	workqueue     workqueue.RateLimitingInterface
 	recorder      record.EventRecorder
 }
 
@@ -62,10 +58,10 @@ func NewController(
 	controller := &Controller{
 		jobsLister: jobInformer.Lister(),
 		jobsSynced: jobInformer.Informer().HasSynced,
-		workqueue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Kjobs"),
 		recorder:   recorder,
 	}
 	serverStartTime = time.Now().Local()
+	notifiedJobs := make(map[string]bool)
 
 	notifications := notification.NewNotifications()
 	subscriptions := monitoring.NewSubscription()
@@ -76,29 +72,35 @@ func NewController(
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
 			klog.Infof("Job Added: %v", newJob.Status)
-			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() > 0 {
-				klog.Infof("Job started: %v", newJob.Status)
 
-				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
-
-				if err != nil {
-					klog.Errorf("Get cronjob failed: %v", err)
-				}
-				messageParam := notification.MessageTemplateParam{
-					JobName:     newJob.Name,
-					CronJobName: cronJob.Name,
-					Namespace:   newJob.Namespace,
-					StartTime:   newJob.Status.StartTime,
-				}
-				for name, n := range notifications {
-					err := n.NotifyStart(messageParam)
-					if err != nil {
-						klog.Errorf("Failed %s notification: %v", name, err)
-					}
-				}
-
+			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
+				return
 			}
-			controller.handleObject(new)
+
+			if notifiedJobs[newJob.Name] == true {
+				return
+			}
+
+			klog.Infof("Job started: %v", newJob.Status)
+
+			cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+
+			if err != nil {
+				klog.Errorf("Get cronjob failed: %v", err)
+			}
+			messageParam := notification.MessageTemplateParam{
+				JobName:     newJob.Name,
+				CronJobName: cronJob.Name,
+				Namespace:   newJob.Namespace,
+				StartTime:   newJob.Status.StartTime,
+			}
+			for name, n := range notifications {
+				err := n.NotifyStart(messageParam)
+				if err != nil {
+					klog.Errorf("Failed %s notification: %v", name, err)
+				}
+			}
+
 		},
 		UpdateFunc: func(old, new interface{}) {
 			newJob := new.(*batchv1.Job)
@@ -106,20 +108,30 @@ func NewController(
 
 			klog.Infof("oldJob.Status:%v", oldJob.Status)
 			klog.Infof("newJob.Status:%v", newJob.Status)
+			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
+				return
+			}
+			if notifiedJobs[newJob.Name] == true {
+				return
+			}
+
 			if newJob.Status.Succeeded == intTrue {
 				klog.Infof("Job succeeded: %v", newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
+					return
 				}
 				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
 
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
+					return
 				}
 				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 				if err != nil {
-					klog.Errorf("Get pods log failed: %v", err)
+					klog.Errorf("Get pods failed: %v", err)
+					return
 				}
 
 				messageParam := notification.MessageTemplateParam{
@@ -151,21 +163,25 @@ func NewController(
 					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-
+				notifiedJobs[newJob.Name] = true
 			} else if newJob.Status.Failed == intTrue {
 				klog.Infof("Job failed: %v", newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
+					return
 				}
+
 				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
+					return
 				}
 
 				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
+					return
 				}
 
 				messageParam := notification.MessageTemplateParam{
@@ -193,11 +209,14 @@ func NewController(
 						klog.Errorf("Fail event subscribe.: %v", err)
 					}
 				}
+				notifiedJobs[newJob.Name] = true
 				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
-			controller.handleObject(new)
+
+		}, DeleteFunc: func(obj interface{}) {
+			deletedJob := obj.(*batchv1.Job)
+			delete(notifiedJobs, deletedJob.Name)
 		},
-		DeleteFunc: controller.handleObject,
 	})
 
 	return controller
@@ -206,7 +225,6 @@ func NewController(
 // Run is Kubernetes Controller execute method
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer c.workqueue.ShutDown()
 
 	klog.Info("Starting kubernetes job notify controller")
 
@@ -215,101 +233,11 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	klog.Info("Starting workers")
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
 	klog.Info("Started workers")
 	<-stopCh
 	klog.Info("Shutting down workers")
 
 	return nil
-}
-
-func (c *Controller) runWorker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *Controller) processNextWorkItem() bool {
-	obj, shutdown := c.workqueue.Get()
-
-	if shutdown {
-		return false
-	}
-
-	err := func(obj interface{}) error {
-
-		defer c.workqueue.Done(obj)
-		var key string
-		var ok bool
-
-		if key, ok = obj.(string); !ok {
-			c.workqueue.Forget(obj)
-			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
-			return nil
-		}
-
-		if err := c.syncHandler(key); err != nil {
-			c.workqueue.AddRateLimited(key)
-			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
-		}
-		c.workqueue.Forget(obj)
-		klog.V(4).Infof("Successfully synced '%s'", key)
-		return nil
-	}(obj)
-
-	if err != nil {
-		utilruntime.HandleError(err)
-		return true
-	}
-
-	return true
-}
-
-func (c *Controller) syncHandler(key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	klog.V(4).Infof("name: %s", name)
-	klog.V(4).Infof("namespace: %s", namespace)
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-		return nil
-	}
-	_, err = c.jobsLister.Jobs(namespace).Get(name)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("job '%s' in work queue no longer exists", key))
-			return nil
-		}
-		return err
-	}
-
-	return nil
-}
-
-func (c *Controller) enqueueJob(obj interface{}) {
-	var key string
-	var err error
-	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
-		utilruntime.HandleError(err)
-		return
-	}
-	c.workqueue.Add(key)
-}
-
-func (c *Controller) handleObject(obj interface{}) {
-	var job *batchv1.Job
-	var ok bool
-
-	if job, ok = obj.(*batchv1.Job); ok {
-		klog.V(4).Infof("Processing job: %v", job.GetName())
-		if job.Status.StartTime != nil {
-			c.enqueueJob(job)
-			return
-		}
-	}
-	return
 }
 
 func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Job) (corev1.Pod, error) {
@@ -322,10 +250,10 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 		return corev1.Pod{}, err
 	}
 	if jobPodList.Size() == 0 {
-		return corev1.Pod{}, err
+		return corev1.Pod{}, xerrors.Errorf("Failed get pod list JobPodListSize: %v", jobPodList.Size())
 	}
 	if len(jobPodList.Items) == 0 {
-		return corev1.Pod{}, err
+		return corev1.Pod{}, xerrors.Errorf("Failed get pod list jobPodList.Items): %v", jobPodList.Items)
 	}
 
 	jobPod := jobPodList.Items[0]
