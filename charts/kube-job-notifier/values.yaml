@@ -23,6 +23,10 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+rbac:
+  # Specifies whether a role & rolebinding should be created
+  create: true
+
 podAnnotations: {}
 
 podSecurityContext: {}
