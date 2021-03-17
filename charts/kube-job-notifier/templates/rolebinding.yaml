@@ -1,3 +1,4 @@
+{{- if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -7,8 +8,9 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: view
+  name: {{ include "kube-job-notifier.fullname" . }}
 subjects:
   - kind: ServiceAccount
     name: {{ include "kube-job-notifier.serviceAccountName" . }}
     namespace: {{ .Release.Namespace  }}
+{{- end }}
