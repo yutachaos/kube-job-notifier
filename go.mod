@@ -3,7 +3,7 @@ module github.com/yutachaos/kube-job-notifier
 go 1.15
 
 require (
-	github.com/DataDog/datadog-go v3.7.0+incompatible
+	github.com/DataDog/datadog-go/v4 v4.7.0
 	github.com/Songmu/flextime v0.0.6
 	github.com/slack-go/slack v0.6.3
 	github.com/stretchr/testify v1.4.0
