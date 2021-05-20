@@ -131,7 +131,6 @@ func NewController(
 				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
-					return
 				}
 
 				messageParam := notification.MessageTemplateParam{
@@ -181,7 +180,6 @@ func NewController(
 				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
-					return
 				}
 
 				messageParam := notification.MessageTemplateParam{
@@ -210,7 +208,6 @@ func NewController(
 					}
 				}
 				notifiedJobs[newJob.Name] = true
-				klog.V(4).Infof("Job failed log: %v", jobLogStr)
 			}
 
 		}, DeleteFunc: func(obj interface{}) {
