@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -239,7 +240,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Job) (corev1.Pod, error) {
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{searchLabel: string(job.UID)}}
-	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(metav1.ListOptions{
+	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
 		Limit:         1,
 	})
@@ -264,7 +265,7 @@ func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batc
 			return ownerReference.Kind == "CronJob"
 		}).([]metav1.OwnerReference); ok &&
 		len(ownerReferences) > 0 {
-		cronJob, err := kubeclientset.BatchV1beta1().CronJobs(job.Namespace).Get(
+		cronJob, err := kubeclientset.BatchV1beta1().CronJobs(job.Namespace).Get(context.TODO(),
 			ownerReferences[0].Name,
 			metav1.GetOptions{
 				TypeMeta: metav1.TypeMeta{
@@ -291,7 +292,7 @@ func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName stri
 		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: cronJobName})
 	}
 
-	podLogs, err := req.Stream()
+	podLogs, err := req.Stream(context.TODO())
 	if err != nil {
 		return "", xerrors.Errorf("error in open log stream: %v", err)
 	}
