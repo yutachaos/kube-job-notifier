@@ -13,7 +13,6 @@ import (
 	"github.com/yutachaos/kube-job-notifier/pkg/notification"
 	"golang.org/x/xerrors"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -84,14 +83,14 @@ func NewController(
 
 			klog.Infof("Job started: %v", newJob.Status)
 
-			cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+			cronJob, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
 
 			if err != nil {
 				klog.Errorf("Get cronjob failed: %v", err)
 			}
 			messageParam := notification.MessageTemplateParam{
 				JobName:     newJob.Name,
-				CronJobName: cronJob.Name,
+				CronJobName: cronJob,
 				Namespace:   newJob.Namespace,
 				StartTime:   newJob.Status.StartTime,
 			}
@@ -123,20 +122,20 @@ func NewController(
 					klog.Errorf("Get pods failed: %v", err)
 					return
 				}
-				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+				cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
 
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
 					return
 				}
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
+				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJobName)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
 				}
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
-					CronJobName:    cronJob.Name,
+					CronJobName:    cronJobName,
 					Namespace:      newJob.Namespace,
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
@@ -154,7 +153,7 @@ func NewController(
 
 					err = datadogSubscription.SuccessEvent(
 						monitoring.JobInfo{
-							CronJobName: cronJob.Name,
+							CronJobName: cronJobName,
 							Name:        newJob.Name,
 							Namespace:   newJob.Namespace,
 						})
@@ -172,20 +171,20 @@ func NewController(
 					return
 				}
 
-				cronJob, err := getCronJobFromOwnerReferences(kubeclientset, newJob)
+				cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get cronjob failed: %v", err)
 					return
 				}
 
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJob.Name)
+				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJobName)
 				if err != nil {
 					klog.Errorf("Get pods log failed: %v", err)
 				}
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
-					CronJobName:    cronJob.Name,
+					CronJobName:    cronJobName,
 					Namespace:      newJob.Namespace,
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
@@ -200,7 +199,7 @@ func NewController(
 				if os.Getenv("DATADOG_ENABLE") == "true" {
 					err = datadogSubscription.FailEvent(
 						monitoring.JobInfo{
-							CronJobName: cronJob.Name,
+							CronJobName: cronJobName,
 							Name:        newJob.Name,
 							Namespace:   newJob.Namespace,
 						})
@@ -258,14 +257,14 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 	return jobPod, nil
 }
 
-func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batchv1.Job) (v1beta1.CronJob, error) {
+func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *batchv1.Job) (cronJobName string, err error) {
 
 	if ownerReferences, ok := funk.Filter(job.OwnerReferences,
 		func(ownerReference metav1.OwnerReference) bool {
 			return ownerReference.Kind == "CronJob"
 		}).([]metav1.OwnerReference); ok &&
 		len(ownerReferences) > 0 {
-		cronJob, err := kubeclientset.BatchV1beta1().CronJobs(job.Namespace).Get(context.TODO(),
+		cronJobBeta, err := kubeclientset.BatchV1beta1().CronJobs(job.Namespace).Get(context.TODO(),
 			ownerReferences[0].Name,
 			metav1.GetOptions{
 				TypeMeta: metav1.TypeMeta{
@@ -274,13 +273,24 @@ func getCronJobFromOwnerReferences(kubeclientset kubernetes.Interface, job *batc
 				},
 			})
 
-		if err != nil {
-			return v1beta1.CronJob{}, err
+		if err == nil {
+			return cronJobBeta.Name, err
 		}
-		return *cronJob, err
 
+		cronJobV1, err := kubeclientset.BatchV1().CronJobs(job.Namespace).Get(context.TODO(),
+			ownerReferences[0].Name,
+			metav1.GetOptions{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       ownerReferences[0].Kind,
+					APIVersion: ownerReferences[0].APIVersion,
+				},
+			})
+
+		if err == nil {
+			return cronJobV1.Name, err
+		}
 	}
-	return v1beta1.CronJob{}, nil
+	return cronJobName, err
 }
 
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) (string, error) {
