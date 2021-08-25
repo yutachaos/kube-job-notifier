@@ -257,7 +257,7 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 	return jobPod, nil
 }
 
-func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *batchv1.Job) (string, error) {
+func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *batchv1.Job) (cronJobName string, err error) {
 
 	if ownerReferences, ok := funk.Filter(job.OwnerReferences,
 		func(ownerReference metav1.OwnerReference) bool {
@@ -286,13 +286,11 @@ func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *
 				},
 			})
 
-		if err != nil {
-			return "", err
+		if err == nil {
+			return cronJobV1.Name, err
 		}
-		return cronJobV1.Name, err
-
 	}
-	return "", nil
+	return cronJobName, err
 }
 
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) (string, error) {
