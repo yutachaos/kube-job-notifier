@@ -49,3 +49,8 @@ kube-job-notifier-deployment-698fbc8b54-ffk2q   1/1     Running   0          8m1
 #### Install with Helm
 `helm repo add kube-job-notifier https://yutachaos.github.io/kube-job-notifier/`
 `helm install kube-job-notifier/kube-job-notifier --generate-name`
+
+#### Document
+
+https://yutachaos.github.io/kube-job-notifier/
+
