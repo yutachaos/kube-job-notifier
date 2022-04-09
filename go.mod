@@ -10,8 +10,8 @@ require (
 	github.com/stretchr/testify v1.7.1
 	github.com/thoas/go-funk v0.9.2
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-	k8s.io/api v0.22.3
-	k8s.io/apimachinery v0.22.3
-	k8s.io/client-go v0.22.2
+	k8s.io/api v0.23.5
+	k8s.io/apimachinery v0.23.5
+	k8s.io/client-go v0.23.5
 	k8s.io/klog v1.0.0
 )
