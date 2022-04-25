@@ -128,10 +128,7 @@ func NewController(
 					klog.Errorf("Get cronjob failed: %v", err)
 					return
 				}
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJobName)
-				if err != nil {
-					klog.Errorf("Get pods failed: %v", err)
-				}
+				jobLogStr := getPodLogs(kubeclientset, jobPod, cronJobName)
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
@@ -177,10 +174,7 @@ func NewController(
 					return
 				}
 
-				jobLogStr, err := getPodLogs(kubeclientset, jobPod, cronJobName)
-				if err != nil {
-					klog.Errorf("Get pods log failed: %v", err)
-				}
+				jobLogStr := getPodLogs(kubeclientset, jobPod, cronJobName)
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
@@ -292,7 +286,7 @@ func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *
 	return cronJobName, err
 }
 
-func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) (string, error) {
+func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) string {
 	var req *rest.Request
 	// OwnerReferenceがCronJobではない場合cronJobNameが空になる
 	if cronJobName == "" {
@@ -303,18 +297,18 @@ func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName stri
 
 	podLogs, err := req.Stream(context.TODO())
 	if err != nil {
-		return "", xerrors.Errorf("error in open log stream: %v", err)
+		return err.Error()
 	}
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
 	if err != nil {
-		return "", xerrors.Errorf("error in copy information from log to buffer: %v", err)
+		return err.Error()
 	}
 	str := buf.String()
 	err = podLogs.Close()
 
 	if err != nil {
-		return "", xerrors.Errorf("error in close log stream: %v", err)
+		return err.Error()
 	}
-	return str, nil
+	return str
 }
