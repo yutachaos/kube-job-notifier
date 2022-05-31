@@ -159,7 +159,6 @@ func NewController(
 					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 
 			} else if newJob.Status.Failed == intTrue {
 				klog.Infof("Job failed: Name: %s: Status: %v", newJob.Name, newJob.Status)
@@ -202,10 +201,8 @@ func NewController(
 						klog.Errorf("Fail event subscribe.: %v", err)
 					}
 				}
-				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
-
 			}
-
+			notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 		}, DeleteFunc: func(obj interface{}) {
 			deletedJob := obj.(*batchv1.Job)
 			delete(notifiedJobs, deletedJob.Name)
