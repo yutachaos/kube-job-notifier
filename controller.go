@@ -11,7 +11,6 @@ import (
 	"github.com/thoas/go-funk"
 	"github.com/yutachaos/kube-job-notifier/pkg/monitoring"
 	"github.com/yutachaos/kube-job-notifier/pkg/notification"
-	"golang.org/x/xerrors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,7 +116,7 @@ func NewController(
 			}
 
 			if newJob.Status.Succeeded == intTrue {
-				klog.Infof("Job succeeded: %v", newJob.Status)
+				klog.Infof("Job succeeded: Name: %s: Status: %v", newJob.Name, newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
@@ -160,10 +159,9 @@ func NewController(
 					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-				notifiedJobs[newJob.Name] = isComplatedJob(kubeclientset, newJob)
 
 			} else if newJob.Status.Failed == intTrue {
-				klog.Infof("Job failed: %v", newJob.Status)
+				klog.Infof("Job failed: Name: %s: Status: %v", newJob.Name, newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
@@ -203,10 +201,8 @@ func NewController(
 						klog.Errorf("Fail event subscribe.: %v", err)
 					}
 				}
-				notifiedJobs[newJob.Name] = isComplatedJob(kubeclientset, newJob)
-
 			}
-
+			notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 		}, DeleteFunc: func(obj interface{}) {
 			deletedJob := obj.(*batchv1.Job)
 			delete(notifiedJobs, deletedJob.Name)
@@ -234,7 +230,12 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return nil
 }
 
-func isComplatedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
+func isCompletedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
+
+	if job.Status.Succeeded == intTrue {
+		return true
+	}
+
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{searchLabel: string(job.UID)}}
 	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
@@ -244,7 +245,7 @@ func isComplatedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
 	if err != nil {
 		return true
 	}
-	if jobPodList.Size() != int(*job.Spec.BackoffLimit) {
+	if jobPodList.Size() < int(*job.Spec.BackoffLimit) {
 		return false
 	}
 	return true
@@ -260,10 +261,10 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 		return corev1.Pod{}, err
 	}
 	if jobPodList.Size() == 0 {
-		return corev1.Pod{}, xerrors.Errorf("Failed get pod list JobPodListSize: %v", jobPodList.Size())
+		return corev1.Pod{}, fmt.Errorf("failed get pod list JobPodListSize: %v", jobPodList.Size())
 	}
 	if len(jobPodList.Items) == 0 {
-		return corev1.Pod{}, xerrors.Errorf("Failed get pod list jobPodList.Items): %v", jobPodList.Items)
+		return corev1.Pod{}, fmt.Errorf("failed get pod list jobPodList.Items): %v", jobPodList.Items)
 	}
 	jobPod := jobPodList.Items[len(jobPodList.Items)-1]
 	return jobPod, nil
