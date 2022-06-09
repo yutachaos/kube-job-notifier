@@ -245,7 +245,7 @@ func isCompletedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
 	if err != nil {
 		return true
 	}
-	if jobPodList.Size()-1 <= int(*job.Spec.BackoffLimit) {
+	if jobPodList.Size() < int(*job.Spec.BackoffLimit) {
 		return false
 	}
 	return true
