@@ -237,15 +237,17 @@ func isCompletedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
 	}
 
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{searchLabel: string(job.UID)}}
+
 	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
-		Limit:         int64(*job.Spec.BackoffLimit),
+		Limit:         int64(*job.Spec.BackoffLimit + 1),
 	})
 
 	if err != nil {
 		return true
 	}
-	if jobPodList.Size() < int(*job.Spec.BackoffLimit) {
+
+	if len(jobPodList.Items) != int(*job.Spec.BackoffLimit)+1 {
 		return false
 	}
 	return true
