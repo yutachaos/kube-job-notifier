@@ -310,7 +310,7 @@ func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *
 
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) string {
 	var req *rest.Request
-	// OwnerReferenceがCronJobではない場合cronJobNameが空になる
+	// When not OwnerReference CronJob cronjob, cronjobname is blank
 	if cronJobName == "" {
 		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
 	} else {
