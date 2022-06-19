@@ -159,7 +159,7 @@ func NewController(
 					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-
+				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 			} else if newJob.Status.Failed == intTrue {
 				klog.Infof("Job failed: Name: %s: Status: %v", newJob.Name, newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
@@ -201,8 +201,8 @@ func NewController(
 						klog.Errorf("Fail event subscribe.: %v", err)
 					}
 				}
+				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 			}
-			notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 		}, DeleteFunc: func(obj interface{}) {
 			deletedJob := obj.(*batchv1.Job)
 			delete(notifiedJobs, deletedJob.Name)
@@ -237,15 +237,17 @@ func isCompletedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
 	}
 
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{searchLabel: string(job.UID)}}
+
 	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
-		Limit:         int64(*job.Spec.BackoffLimit),
+		Limit:         int64(*job.Spec.BackoffLimit + 1),
 	})
 
 	if err != nil {
 		return true
 	}
-	if jobPodList.Size() < int(*job.Spec.BackoffLimit) {
+
+	if jobPodList.Items != nil && len(jobPodList.Items) != int(*job.Spec.BackoffLimit)+1 {
 		return false
 	}
 	return true
