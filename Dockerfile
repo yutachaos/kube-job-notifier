@@ -1,4 +1,4 @@
-FROM golang:1.18.2-alpine as build-env
+FROM golang:1.19.0-alpine as build-env
 WORKDIR /go/src/app
 COPY . /go/src/app
 RUN go build -o ./kube-job-notifier *.go
