@@ -31,6 +31,7 @@ const (
 	controllerAgentName = "cronjob-controller"
 	intTrue             = 1
 	searchLabel         = "controller-uid"
+	slackAnnotationName = "slack-channel"
 )
 
 var serverStartTime time.Time
@@ -94,7 +95,11 @@ func NewController(
 				StartTime:   newJob.Status.StartTime,
 			}
 			for name, n := range notifications {
-				err := n.NotifyStart(messageParam)
+				if cronJob == "" {
+					klog.Infof("Ignore start notification for %s because it's a cron job", name)
+					continue
+				}
+				err := n.NotifyStart(messageParam, getSlackChannel(newJob))
 				if err != nil {
 					klog.Errorf("Failed %s notification: %v", name, err)
 				}
@@ -140,7 +145,11 @@ func NewController(
 				}
 
 				for name, n := range notifications {
-					err = n.NotifySuccess(messageParam)
+					if cronJobName == "" {
+						klog.Infof("Ignore start notification for %s because it's a cron job", name)
+						continue
+					}
+					err = n.NotifySuccess(messageParam, getSlackChannel(newJob))
 					if err != nil {
 						klog.Errorf("Failed %s n: %v", name, err)
 					}
@@ -185,7 +194,7 @@ func NewController(
 					Log:            jobLogStr,
 				}
 				for name, n := range notifications {
-					err := n.NotifyFailed(messageParam)
+					err := n.NotifyFailed(messageParam, getSlackChannel(newJob))
 					if err != nil {
 						klog.Errorf("Failed %s notification: %v", name, err)
 					}
@@ -210,6 +219,14 @@ func NewController(
 	})
 
 	return controller
+}
+
+func getSlackChannel(job *batchv1.Job) string {
+	slackChannel, ok := job.Annotations[slackAnnotationName]
+	if !ok {
+		return ""
+	}
+	return slackChannel
 }
 
 // Run is Kubernetes Controller execute method
