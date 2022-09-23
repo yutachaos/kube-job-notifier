@@ -54,7 +54,7 @@ func newSlack() slack {
 
 }
 
-func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
+func (s slack) NotifyStart(messageParam MessageTemplateParam, slackChannel string) (err error) {
 
 	if !isNotifyFromEnv("SLACK_STARTED_NOTIFY") {
 		return nil
@@ -63,6 +63,9 @@ func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
 	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
 	if succeedChannel != "" {
 		s.channel = succeedChannel
+	}
+	if slackChannel != "" {
+		s.channel = slackChannel
 	}
 
 	slackMessage, err := getSlackMessage(messageParam)
@@ -97,7 +100,7 @@ func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, er
 	return b.String(), nil
 }
 
-func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
+func (s slack) NotifySuccess(messageParam MessageTemplateParam, slackChannel string) (err error) {
 
 	if !isNotifyFromEnv("SLACK_SUCCEEDED_NOTIFY") {
 		return nil
@@ -106,6 +109,9 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
 	if succeedChannel != "" {
 		s.channel = succeedChannel
+	}
+	if slackChannel != "" {
+		s.channel = slackChannel
 	}
 	if messageParam.Log != "" {
 		file, err := s.uploadLog(messageParam)
@@ -136,7 +142,7 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 	return nil
 }
 
-func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
+func (s slack) NotifyFailed(messageParam MessageTemplateParam, slackChannel string) (err error) {
 
 	if !isNotifyFromEnv("SLACK_FAILED_NOTIFY") {
 		return nil
@@ -145,6 +151,9 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 	failedChannel := os.Getenv("SLACK_FAILED_CHANNEL")
 	if failedChannel != "" {
 		s.channel = failedChannel
+	}
+	if slackChannel != "" {
+		s.channel = slackChannel
 	}
 	if messageParam.Log != "" {
 		file, err := s.uploadLog(messageParam)

@@ -28,9 +28,16 @@ import (
 )
 
 const (
-	controllerAgentName = "cronjob-controller"
-	intTrue             = 1
-	searchLabel         = "controller-uid"
+	controllerAgentName                = "cronjob-controller"
+	intTrue                            = 1
+	searchLabel                        = "controller-uid"
+	slackDefaultAnnotationName         = "kube-job-notifier/default-channel"
+	slackSuccessAnnotationName         = "kube-job-notifier/success-channel"
+	slackStartedAnnotationName         = "kube-job-notifier/started-channel"
+	slackFailedAnnotationName          = "kube-job-notifier/failed-channel"
+	slackSuppressSuccessAnnotationName = "kube-job-notifier/suppress-success-notification"
+	slackSuppressStartedAnnotationName = "kube-job-notifier/suppress-started-notification"
+	slackSuppressFailedAnnotationName  = "kube-job-notifier/suppress-failed-notification"
 )
 
 var serverStartTime time.Time
@@ -94,7 +101,11 @@ func NewController(
 				StartTime:   newJob.Status.StartTime,
 			}
 			for name, n := range notifications {
-				err := n.NotifyStart(messageParam)
+				if isNotificationSuppressed(newJob, slackSuppressStartedAnnotationName) {
+					klog.Infof("Notification for %s is suppressed", name)
+					continue
+				}
+				err := n.NotifyStart(messageParam, getSlackChannel(newJob, slackStartedAnnotationName))
 				if err != nil {
 					klog.Errorf("Failed %s notification: %v", name, err)
 				}
@@ -140,7 +151,11 @@ func NewController(
 				}
 
 				for name, n := range notifications {
-					err = n.NotifySuccess(messageParam)
+					if isNotificationSuppressed(newJob, slackSuppressSuccessAnnotationName) {
+						klog.Infof("Notification for %s is suppressed", name)
+						continue
+					}
+					err = n.NotifySuccess(messageParam, getSlackChannel(newJob, slackSuccessAnnotationName))
 					if err != nil {
 						klog.Errorf("Failed %s n: %v", name, err)
 					}
@@ -185,7 +200,12 @@ func NewController(
 					Log:            jobLogStr,
 				}
 				for name, n := range notifications {
-					err := n.NotifyFailed(messageParam)
+					if isNotificationSuppressed(newJob, slackSuppressFailedAnnotationName) {
+						klog.Infof("Notification for %s is suppressed", name)
+						continue
+					}
+
+					err := n.NotifyFailed(messageParam, getSlackChannel(newJob, slackFailedAnnotationName))
 					if err != nil {
 						klog.Errorf("Failed %s notification: %v", name, err)
 					}
@@ -210,6 +230,22 @@ func NewController(
 	})
 
 	return controller
+}
+
+func getSlackChannel(job *batchv1.Job, annotationName string) string {
+	slackChannel, ok := job.Annotations[annotationName]
+	if !ok {
+		return job.Annotations[slackDefaultAnnotationName]
+	}
+	return slackChannel
+}
+
+func isNotificationSuppressed(job *batchv1.Job, annotationName string) bool {
+	a, ok := job.Annotations[annotationName]
+	if !ok {
+		return false
+	}
+	return a == "true"
 }
 
 // Run is Kubernetes Controller execute method
