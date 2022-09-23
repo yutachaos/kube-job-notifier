@@ -22,6 +22,25 @@ export DATADOG_ENABLED=true # OPTIONAL DEFAULT false
 export NAMESPACE=KUBERNETES_NAMESPACE # OPTIONAL
 ```
 
+It will take SLACK_CHANNEL as default channel which may be overwritten by SLACK_SUCCEED_CHANNEL, SLACK_FAILED_CHANNEL environment variables.
+
+Another way of overriding behaviour is using job annotations in k8s. Available job annotations to override are: 
+
+```
+- kube-job-notifier/default-channel - will be used as channel for a notification if similar success channel annotation is empty 
+- kube-job-notifier/success-channel - will be used as channel for a success job notification 
+- kube-job-notifier/started-channel - will be used as channel for a started job notification 
+- kube-job-notifier/failed-channel - will be used as channel for a failed job notification 
+```
+
+Also it's possible to suppress notification per job: 
+
+```
+- kube-job-notifier/suppress-success-notification - suppress notification for succesfully finished job even if SLACK_SUCCEEDED_NOTIFY environment variable set to true
+- kube-job-notifier/suppress-started-notification - suppress notification when job is started even if SLACK_STARTED_NOTIFY environment variable set to true 
+- kube-job-notifier/suppress-failed-notification - suppress notification when job is failed even if SLACK_FAILED_NOTIFY environment variable set to true 
+```
+
 ### Event subscription setting(Current Datadog support only)
 - Datadog service checks are sent when the Job succeeds or fails.
 - More information https://docs.datadoghq.com/developers/service_checks/dogstatsd_service_checks_submission/
