@@ -179,6 +179,12 @@ func TestGetSlackChannel(t *testing.T) {
 			"kube-job-notifier/success-channel",
 			"job-alerts-success",
 		},
+		{
+			"Nil annotation not break",
+			nil,
+			"kube-job-notifier/suppress-success-notification",
+			"",
+		},
 	}
 
 	for _, test := range tests {
@@ -223,6 +229,12 @@ func TestIsNotificationSuppressed(t *testing.T) {
 			},
 			"kube-job-notifier/suppress-success-notification",
 			true,
+		},
+		{
+			"Nil annotation not break",
+			nil,
+			"kube-job-notifier/suppress-success-notification",
+			false,
 		},
 	}
 
