@@ -14,6 +14,7 @@ type MessageTemplateParam struct {
 	CompletionTime *metav1.Time
 	ExecutionTime  time.Duration
 	Log            string
+	Annotations    map[string]string
 }
 
 func (m MessageTemplateParam) calculateExecutionTime() (completionTime *metav1.Time, executionTime time.Duration) {
@@ -28,9 +29,9 @@ func (m MessageTemplateParam) calculateExecutionTime() (completionTime *metav1.T
 }
 
 type Notification interface {
-	NotifyStart(messageParam MessageTemplateParam, slackChannel string) (err error)
-	NotifySuccess(messageParam MessageTemplateParam, slackChannel string) (err error)
-	NotifyFailed(messageParam MessageTemplateParam, slackChannel string) (err error)
+	NotifyStart(messageParam MessageTemplateParam) (err error)
+	NotifySuccess(messageParam MessageTemplateParam) (err error)
+	NotifyFailed(messageParam MessageTemplateParam) (err error)
 }
 
 func NewNotifications() map[string]Notification {

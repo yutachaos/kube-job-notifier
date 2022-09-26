@@ -20,6 +20,14 @@ const (
 {{if .CompletionTime }} *CompletionTime*: {{.CompletionTime.Format "2006/1/2 15:04:05 UTC"}}{{end}}
 {{if .ExecutionTime }} *ExecutionTime*: {{.ExecutionTime}}{{end}}
 {{if .Log }} *Loglink*: {{.Log}}{{end}}`
+
+	defaultAnnotationName         = "kube-job-notifier/default-channel"
+	successAnnotationName         = "kube-job-notifier/success-channel"
+	startedAnnotationName         = "kube-job-notifier/started-channel"
+	failedAnnotationName          = "kube-job-notifier/failed-channel"
+	suppressSuccessAnnotationName = "kube-job-notifier/suppress-success-notification"
+	suppressStartedAnnotationName = "kube-job-notifier/suppress-started-notification"
+	suppressFailedAnnotationName  = "kube-job-notifier/suppress-failed-notification"
 )
 
 var slackColors = map[string]string{
@@ -54,9 +62,14 @@ func newSlack() slack {
 
 }
 
-func (s slack) NotifyStart(messageParam MessageTemplateParam, slackChannel string) (err error) {
+func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
 
 	if !isNotifyFromEnv("SLACK_STARTED_NOTIFY") {
+		return nil
+	}
+
+	if isNotificationSuppressed(messageParam.Annotations, suppressStartedAnnotationName) {
+		klog.Infof("Notification for %s is suppressed", messageParam.JobName)
 		return nil
 	}
 
@@ -64,6 +77,7 @@ func (s slack) NotifyStart(messageParam MessageTemplateParam, slackChannel strin
 	if succeedChannel != "" {
 		s.channel = succeedChannel
 	}
+	slackChannel := getSlackChannel(messageParam.Annotations, startedAnnotationName)
 	if slackChannel != "" {
 		s.channel = slackChannel
 	}
@@ -100,9 +114,14 @@ func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, er
 	return b.String(), nil
 }
 
-func (s slack) NotifySuccess(messageParam MessageTemplateParam, slackChannel string) (err error) {
+func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 
 	if !isNotifyFromEnv("SLACK_SUCCEEDED_NOTIFY") {
+		return nil
+	}
+
+	if isNotificationSuppressed(messageParam.Annotations, suppressSuccessAnnotationName) {
+		klog.Infof("Notification for %s is suppressed", messageParam.JobName)
 		return nil
 	}
 
@@ -110,6 +129,7 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam, slackChannel str
 	if succeedChannel != "" {
 		s.channel = succeedChannel
 	}
+	slackChannel := getSlackChannel(messageParam.Annotations, successAnnotationName)
 	if slackChannel != "" {
 		s.channel = slackChannel
 	}
@@ -142,9 +162,14 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam, slackChannel str
 	return nil
 }
 
-func (s slack) NotifyFailed(messageParam MessageTemplateParam, slackChannel string) (err error) {
+func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 
 	if !isNotifyFromEnv("SLACK_FAILED_NOTIFY") {
+		return nil
+	}
+
+	if isNotificationSuppressed(messageParam.Annotations, suppressFailedAnnotationName) {
+		klog.Infof("Notification for %s is suppressed", messageParam.JobName)
 		return nil
 	}
 
@@ -152,6 +177,7 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam, slackChannel stri
 	if failedChannel != "" {
 		s.channel = failedChannel
 	}
+	slackChannel := getSlackChannel(messageParam.Annotations, failedAnnotationName)
 	if slackChannel != "" {
 		s.channel = slackChannel
 	}
@@ -183,6 +209,22 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam, slackChannel stri
 		return err
 	}
 	return nil
+}
+
+func getSlackChannel(annotations map[string]string, annotationName string) string {
+	slackChannel, ok := annotations[annotationName]
+	if !ok {
+		return annotations[defaultAnnotationName]
+	}
+	return slackChannel
+}
+
+func isNotificationSuppressed(annotations map[string]string, annotationName string) bool {
+	a, ok := annotations[annotationName]
+	if !ok {
+		return false
+	}
+	return a == "true"
 }
 
 func (s slack) notify(attachment slackapi.Attachment) (err error) {
