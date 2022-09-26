@@ -92,6 +92,7 @@ func NewController(
 				CronJobName: cronJob,
 				Namespace:   newJob.Namespace,
 				StartTime:   newJob.Status.StartTime,
+				Annotations: newJob.Annotations,
 			}
 			for name, n := range notifications {
 				err := n.NotifyStart(messageParam)
@@ -137,6 +138,7 @@ func NewController(
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
 					Log:            jobLogStr,
+					Annotations:    newJob.Annotations,
 				}
 
 				for name, n := range notifications {
@@ -183,6 +185,7 @@ func NewController(
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
 					Log:            jobLogStr,
+					Annotations:    newJob.Annotations,
 				}
 				for name, n := range notifications {
 					err := n.NotifyFailed(messageParam)

@@ -106,3 +106,100 @@ func TestGetSlackMessage(t *testing.T) {
  *Loglink*: Log`
 	assert.Equal(t, expect, actual)
 }
+
+func TestGetSlackChannel(t *testing.T) {
+	tests := []struct {
+		Name              string
+		annotations       map[string]string
+		channelAnnotation string
+		expected          string
+	}{
+		{
+			"No annotations",
+			map[string]string{
+				"kube-job-notifier/foo": "bar",
+			},
+			"kube-job-notifier/success-channel",
+			"",
+		},
+		{
+			"Default channel",
+			map[string]string{
+				"kube-job-notifier/default-channel": "job-alerts",
+			},
+			"kube-job-notifier/success-channel",
+			"job-alerts",
+		},
+		{
+			"Success channel",
+			map[string]string{
+				"kube-job-notifier/default-channel": "job-alerts",
+				"kube-job-notifier/success-channel": "job-alerts-success",
+			},
+			"kube-job-notifier/success-channel",
+			"job-alerts-success",
+		},
+		{
+			"Nil annotation not break",
+			nil,
+			"kube-job-notifier/suppress-success-notification",
+			"",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			result := getSlackChannel(test.annotations, test.channelAnnotation)
+
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestIsNotificationSuppressed(t *testing.T) {
+	tests := []struct {
+		Name                   string
+		annotations            map[string]string
+		suppressAnnotationName string
+		expected               bool
+	}{
+		{
+			"No annotations",
+			map[string]string{
+				"kube-job-notifier/foo": "bar",
+			},
+			"kube-job-notifier/suppress-success-notification",
+			false,
+		},
+		{
+			"Annotation not true",
+			map[string]string{
+				"kube-job-notifier/suppress-success-notification": "false",
+			},
+			"kube-job-notifier/suppress-success-notification",
+			false,
+		},
+		{
+			"Annotation true",
+			map[string]string{
+				"kube-job-notifier/suppress-success-notification": "true",
+			},
+			"kube-job-notifier/suppress-success-notification",
+			true,
+		},
+		{
+			"Nil annotation not break",
+			nil,
+			"kube-job-notifier/suppress-success-notification",
+			false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			result := isNotificationSuppressed(test.annotations, test.suppressAnnotationName)
+
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}

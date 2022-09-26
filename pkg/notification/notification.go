@@ -14,6 +14,7 @@ type MessageTemplateParam struct {
 	CompletionTime *metav1.Time
 	ExecutionTime  time.Duration
 	Log            string
+	Annotations    map[string]string
 }
 
 func (m MessageTemplateParam) calculateExecutionTime() (completionTime *metav1.Time, executionTime time.Duration) {
