@@ -63,22 +63,25 @@ func newSlack() slack {
 }
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
+	klog.Infof("DEBUG: job %s has annotations %v", messageParam.Annotations)
 
 	if !isNotifyFromEnv("SLACK_STARTED_NOTIFY") {
 		return nil
 	}
 
 	if isNotificationSuppressed(messageParam.Annotations, suppressStartedAnnotationName) {
-		klog.Infof("Notification for %s is suppressed", messageParam.JobName)
+		klog.Infof("Started notification for %s is suppressed", messageParam.JobName)
 		return nil
 	}
 
 	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
 	if succeedChannel != "" {
+		klog.Infof("Started notification for %s will go to %s channel", messageParam.JobName, succeedChannel)
 		s.channel = succeedChannel
 	}
 	slackChannel := getSlackChannel(messageParam.Annotations, startedAnnotationName)
 	if slackChannel != "" {
+		klog.Infof("Starteed notification for %s will go to %s channel", messageParam.JobName, slackChannel)
 		s.channel = slackChannel
 	}
 
@@ -115,22 +118,25 @@ func getSlackMessage(messageParam MessageTemplateParam) (slackMessage string, er
 }
 
 func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
+	klog.Infof("DEBUG: job %s has annotations %v", messageParam.Annotations)
 
 	if !isNotifyFromEnv("SLACK_SUCCEEDED_NOTIFY") {
 		return nil
 	}
 
 	if isNotificationSuppressed(messageParam.Annotations, suppressSuccessAnnotationName) {
-		klog.Infof("Notification for %s is suppressed", messageParam.JobName)
+		klog.Infof("Success notification for %s is suppressed", messageParam.JobName)
 		return nil
 	}
 
 	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
 	if succeedChannel != "" {
+		klog.Infof("Success notification for %s will go to %s channel", messageParam.JobName, succeedChannel)
 		s.channel = succeedChannel
 	}
 	slackChannel := getSlackChannel(messageParam.Annotations, successAnnotationName)
 	if slackChannel != "" {
+		klog.Infof("Success notification for %s will go to %s channel", messageParam.JobName, slackChannel)
 		s.channel = slackChannel
 	}
 	if messageParam.Log != "" {
@@ -163,22 +169,25 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 }
 
 func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
+	klog.Infof("DEBUG: job %s has annotations %v", messageParam.Annotations)
 
 	if !isNotifyFromEnv("SLACK_FAILED_NOTIFY") {
 		return nil
 	}
 
 	if isNotificationSuppressed(messageParam.Annotations, suppressFailedAnnotationName) {
-		klog.Infof("Notification for %s is suppressed", messageParam.JobName)
+		klog.Infof("Failure notification for %s is suppressed", messageParam.JobName)
 		return nil
 	}
 
 	failedChannel := os.Getenv("SLACK_FAILED_CHANNEL")
 	if failedChannel != "" {
+		klog.Infof("Failure notification for %s will go to %s channel", messageParam.JobName, failedChannel)
 		s.channel = failedChannel
 	}
 	slackChannel := getSlackChannel(messageParam.Annotations, failedAnnotationName)
 	if slackChannel != "" {
+		klog.Infof("Failure notification for %s will go to %s channel", messageParam.JobName, slackChannel)
 		s.channel = slackChannel
 	}
 	if messageParam.Log != "" {
