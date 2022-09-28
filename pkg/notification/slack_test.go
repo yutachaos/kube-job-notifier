@@ -4,6 +4,7 @@ import (
 	"github.com/Songmu/flextime"
 	slackapi "github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"testing"
@@ -43,6 +44,293 @@ func TestNewSlack(t *testing.T) {
 	}()
 	os.Unsetenv("SLACK_TOKEN")
 	actual = newSlack()
+}
+
+func TestNotifyStart(t *testing.T) {
+	defaultChannel := "default_channel"
+	tests := []struct {
+		Name                    string
+		startedNotifyChannelEnv string
+		succeededChannelEnv     string
+		annotations             map[string]string
+
+		expectedChannel string
+		notifyCalled    bool
+	}{
+		{
+			"Notify turned off",
+			"false",
+			"",
+			map[string]string{},
+
+			defaultChannel,
+			false,
+		},
+		{
+			"Notify suppressed in annotations",
+			"true",
+			"",
+			map[string]string{
+				"kube-job-notifier/suppress-started-notification": "true",
+			},
+
+			defaultChannel,
+			false,
+		},
+		{
+			"Succeeded channel not specifed in environment",
+			"true",
+			"",
+			map[string]string{},
+
+			defaultChannel,
+			true,
+		},
+		{
+			"Succeeded channel from environment",
+			"true",
+			"started-channel",
+			map[string]string{},
+
+			"started-channel",
+			true,
+		},
+		{
+			"Succeeded channel overwritten in annotations",
+			"true",
+			"",
+			map[string]string{
+				"kube-job-notifier/started-channel": "from-annotations",
+			},
+
+			"from-annotations",
+			true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			os.Setenv("SLACK_STARTED_NOTIFY", test.startedNotifyChannelEnv)
+			os.Setenv("SLACK_SUCCEED_CHANNEL", test.succeededChannelEnv)
+
+			u := "job_notifier"
+
+			mc := &MockSlackClient{}
+			if test.notifyCalled {
+				mc.On("PostMessage", test.expectedChannel, mock.AnythingOfType("[]slack.MsgOption")).
+					Return(test.expectedChannel, "timestamp", nil)
+			}
+
+			slack := slack{client: mc, channel: defaultChannel, username: u}
+
+			err := slack.NotifyStart(MessageTemplateParam{
+				JobName:     "the-job",
+				Annotations: test.annotations,
+			})
+
+			assert.NoError(t, err)
+			mc.AssertExpectations(t)
+
+			os.Unsetenv("SLACK_STARTED_NOTIFY")
+			os.Unsetenv("SLACK_SUCCEED_CHANNEL")
+		})
+	}
+}
+
+func TestNotifySuccess(t *testing.T) {
+	defaultChannel := "default_channel"
+	tests := []struct {
+		Name                     string
+		succededNotifyChannelEnv string
+		succeededChannelEnv      string
+		annotations              map[string]string
+
+		expectedChannel string
+		notifyCalled    bool
+	}{
+		{
+			"Notify turned off",
+			"false",
+			"",
+			map[string]string{},
+
+			defaultChannel,
+			false,
+		},
+		{
+			"Notify suppressed in annotations",
+			"true",
+			"",
+			map[string]string{
+				"kube-job-notifier/suppress-success-notification": "true",
+			},
+
+			defaultChannel,
+			false,
+		},
+		{
+			"Succeeded channel not specifed in environment",
+			"true",
+			"",
+			map[string]string{},
+
+			defaultChannel,
+			true,
+		},
+		{
+			"Succeeded channel from environment",
+			"true",
+			"succeded-channel",
+			map[string]string{},
+
+			"succeded-channel",
+			true,
+		},
+		{
+			"Succeeded channel overwritten in annotations",
+			"true",
+			"",
+			map[string]string{
+				"kube-job-notifier/success-channel": "from-annotations",
+			},
+
+			"from-annotations",
+			true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			os.Setenv("SLACK_SUCCEEDED_NOTIFY", test.succededNotifyChannelEnv)
+			os.Setenv("SLACK_SUCCEED_CHANNEL", test.succeededChannelEnv)
+
+			u := "job_notifier"
+
+			mc := &MockSlackClient{}
+			if test.notifyCalled {
+				mc.On("PostMessage", test.expectedChannel, mock.AnythingOfType("[]slack.MsgOption")).
+					Return(test.expectedChannel, "timestamp", nil)
+			}
+
+			slack := slack{client: mc, channel: defaultChannel, username: u}
+
+			err := slack.NotifySuccess(MessageTemplateParam{
+				JobName:     "the-job",
+				Annotations: test.annotations,
+			})
+
+			assert.NoError(t, err)
+			mc.AssertExpectations(t)
+
+			os.Unsetenv("SLACK_SUCCEEDED_NOTIFY")
+			os.Unsetenv("SLACK_SUCCEED_CHANNEL")
+		})
+	}
+}
+
+func TestNotifyFailed(t *testing.T) {
+	defaultChannel := "default_channel"
+	tests := []struct {
+		Name                   string
+		failedNotifyChannelEnv string
+		failedChannelEnv       string
+		annotations            map[string]string
+
+		expectedChannel string
+		notifyCalled    bool
+	}{
+		{
+			"Notify turned off",
+			"false",
+			"",
+			map[string]string{},
+
+			defaultChannel,
+			false,
+		},
+		{
+			"Notify suppressed in annotations",
+			"true",
+			"",
+			map[string]string{
+				"kube-job-notifier/suppress-failed-notification": "true",
+			},
+
+			defaultChannel,
+			false,
+		},
+		{
+			"Failed channel not specifed in environment",
+			"true",
+			"",
+			map[string]string{},
+
+			defaultChannel,
+			true,
+		},
+		{
+			"Failed channel from environment",
+			"true",
+			"failed-channel",
+			map[string]string{},
+
+			"failed-channel",
+			true,
+		},
+		{
+			"Failed channel overwritten in annotations",
+			"true",
+			"",
+			map[string]string{
+				"kube-job-notifier/failed-channel": "from-annotations",
+			},
+
+			"from-annotations",
+			true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			os.Setenv("SLACK_FAILED_NOTIFY", test.failedNotifyChannelEnv)
+			os.Setenv("SLACK_FAILED_CHANNEL", test.failedChannelEnv)
+
+			u := "job_notifier"
+
+			mc := &MockSlackClient{}
+			if test.notifyCalled {
+				mc.On("PostMessage", test.expectedChannel, mock.AnythingOfType("[]slack.MsgOption")).
+					Return(test.expectedChannel, "timestamp", nil)
+			}
+
+			slack := slack{client: mc, channel: defaultChannel, username: u}
+
+			err := slack.NotifyFailed(MessageTemplateParam{
+				JobName:     "the-job",
+				Annotations: test.annotations,
+			})
+
+			assert.NoError(t, err)
+			mc.AssertExpectations(t)
+
+			os.Unsetenv("SLACK_FAILED_NOTIFY")
+			os.Unsetenv("SLACK_FAILED_CHANNEL")
+		})
+	}
+}
+
+type MockSlackClient struct {
+	mock.Mock
+}
+
+func (c *MockSlackClient) PostMessage(channelID string, options ...slackapi.MsgOption) (string, string, error) {
+	args := c.Called(channelID, options)
+	return args.String(0), args.String(1), args.Error(2)
+}
+
+func (c *MockSlackClient) UploadFile(params slackapi.FileUploadParameters) (file *slackapi.File, err error) {
+	args := c.Called(params)
+	return args.Get(0).(*slackapi.File), args.Error(1)
 }
 
 func TestGetSlackMessage(t *testing.T) {
