@@ -31,6 +31,8 @@ const (
 	controllerAgentName = "cronjob-controller"
 	intTrue             = 1
 	searchLabel         = "controller-uid"
+
+	lastAppliedConfigurationKey = "kubectl.kubernetes.io/last-applied-configuration"
 )
 
 var serverStartTime time.Time
@@ -87,12 +89,13 @@ func NewController(
 			if err != nil {
 				klog.Errorf("Get cronjob failed: %v", err)
 			}
+			klog.Infof("Job started: %v", newJob.Status)
 			messageParam := notification.MessageTemplateParam{
 				JobName:     newJob.Name,
 				CronJobName: cronJob,
 				Namespace:   newJob.Namespace,
 				StartTime:   newJob.Status.StartTime,
-				Annotations: newJob.Annotations,
+				Annotations: newJob.Spec.Template.ObjectMeta.Annotations,
 			}
 			for name, n := range notifications {
 				err := n.NotifyStart(messageParam)
@@ -138,7 +141,7 @@ func NewController(
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
 					Log:            jobLogStr,
-					Annotations:    newJob.Annotations,
+					Annotations:    newJob.Spec.Template.ObjectMeta.Annotations,
 				}
 
 				for name, n := range notifications {
@@ -185,7 +188,7 @@ func NewController(
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
 					Log:            jobLogStr,
-					Annotations:    newJob.Annotations,
+					Annotations:    newJob.Spec.Template.ObjectMeta.Annotations,
 				}
 				for name, n := range notifications {
 					err := n.NotifyFailed(messageParam)
