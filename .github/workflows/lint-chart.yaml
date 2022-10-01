@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  HELM_VERSION: v3.4.1
+  HELM_VERSION: v3.10.0
 
 jobs:
   lint-chart:
