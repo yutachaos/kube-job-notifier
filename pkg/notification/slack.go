@@ -36,8 +36,13 @@ var slackColors = map[string]string{
 	"Danger":  "danger",
 }
 
+type slackClient interface {
+	PostMessage(channelID string, options ...slackapi.MsgOption) (string, string, error)
+	UploadFile(params slackapi.FileUploadParameters) (file *slackapi.File, err error)
+}
+
 type slack struct {
-	client   *slackapi.Client
+	client   slackClient
 	channel  string
 	username string
 }
