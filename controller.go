@@ -168,6 +168,7 @@ func NewController(
 							CronJobName: cronJobName,
 							Name:        newJob.Name,
 							Namespace:   newJob.Namespace,
+							Annotations: newJob.Spec.Template.ObjectMeta.Annotations,
 						})
 					if err != nil {
 						klog.Errorf("Fail event subscribe.: %v", err)
@@ -214,6 +215,7 @@ func NewController(
 							CronJobName: cronJobName,
 							Name:        newJob.Name,
 							Namespace:   newJob.Namespace,
+							Annotations: newJob.Spec.Template.ObjectMeta.Annotations,
 						})
 					if err != nil {
 						klog.Errorf("Fail event subscribe.: %v", err)
