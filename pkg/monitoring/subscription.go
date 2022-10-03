@@ -4,6 +4,7 @@ type JobInfo struct {
 	Name        string
 	CronJobName string
 	Namespace   string
+	Annotations map[string]string
 }
 
 func (j JobInfo) getJobName() string {
@@ -18,7 +19,7 @@ type Subscription interface {
 	FailEvent(jobInfo JobInfo) (err error)
 }
 
-// Support for returning multiple event notifications in one
+// NewSubscription Support for returning multiple event notifications in one
 func NewSubscription() map[string]Subscription {
 	res := make(map[string]Subscription)
 	// default notification
