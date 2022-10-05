@@ -132,7 +132,7 @@ func NewController(
 					klog.Errorf("Get cronjob failed: %v", err)
 					return
 				}
-				jobLogStr := getPodLogs(kubeclientset, jobPod, cronJobName)
+				jobLogStr := getPodLogs(kubeclientset, jobPod, newJob.Name)
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
@@ -179,7 +179,7 @@ func NewController(
 					return
 				}
 
-				jobLogStr := getPodLogs(kubeclientset, jobPod, cronJobName)
+				jobLogStr := getPodLogs(kubeclientset, jobPod, newJob.Name)
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
