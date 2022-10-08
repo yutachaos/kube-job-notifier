@@ -316,10 +316,12 @@ func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *
 
 func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) string {
 	var req *rest.Request
-	// When not OwnerReference CronJob cronjob, cronjobname is blank
+
 	if cronJobName == "" {
-		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
+		// By Default, Get log from first container in Pod.
+		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: pod.Spec.Containers[0].Name})
 	} else {
+		// When OwnerReference CronJob, pods with matching cronjob names will be retrieved.
 		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: cronJobName})
 	}
 
