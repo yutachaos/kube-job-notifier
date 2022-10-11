@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/thoas/go-funk"
@@ -21,7 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	batcheslisters "k8s.io/client-go/listers/batch/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
@@ -32,7 +32,15 @@ const (
 	intTrue             = 1
 	searchLabel         = "controller-uid"
 
-	lastAppliedConfigurationKey = "kubectl.kubernetes.io/last-applied-configuration"
+	logModeAnnotationName = "kube-job-notifier/log-mode"
+)
+
+type logMode int
+
+const (
+	ownerContainer logMode = iota
+	podOnly
+	podContainers
 )
 
 var serverStartTime time.Time
@@ -132,7 +140,9 @@ func NewController(
 					klog.Errorf("Get cronjob failed: %v", err)
 					return
 				}
-				jobLogStr := getPodLogs(kubeclientset, jobPod, cronJobName)
+				annotations := newJob.Spec.Template.ObjectMeta.Annotations
+				lm := getLogMode(annotations, logModeAnnotationName)
+				jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
@@ -141,7 +151,7 @@ func NewController(
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
 					Log:            jobLogStr,
-					Annotations:    newJob.Spec.Template.ObjectMeta.Annotations,
+					Annotations:    annotations,
 				}
 
 				for name, n := range notifications {
@@ -179,7 +189,9 @@ func NewController(
 					return
 				}
 
-				jobLogStr := getPodLogs(kubeclientset, jobPod, cronJobName)
+				annotations := newJob.Spec.Template.ObjectMeta.Annotations
+				lm := getLogMode(annotations, logModeAnnotationName)
+				jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
 
 				messageParam := notification.MessageTemplateParam{
 					JobName:        newJob.Name,
@@ -188,7 +200,7 @@ func NewController(
 					StartTime:      newJob.Status.StartTime,
 					CompletionTime: newJob.Status.CompletionTime,
 					Log:            jobLogStr,
-					Annotations:    newJob.Spec.Template.ObjectMeta.Annotations,
+					Annotations:    annotations,
 				}
 				for name, n := range notifications {
 					err := n.NotifyFailed(messageParam)
@@ -314,15 +326,44 @@ func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *
 	return cronJobName, err
 }
 
-func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string) string {
-	var req *rest.Request
-	// When not OwnerReference CronJob cronjob, cronjobname is blank
-	if cronJobName == "" {
-		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
-	} else {
-		req = clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: cronJobName})
+func getLogMode(annotations map[string]string, annotationName string) logMode {
+	a, ok := annotations[annotationName]
+	if !ok {
+		return ownerContainer
 	}
+	switch a {
+	case "OwnerContainer":
+		return ownerContainer
+	case "PodOnly":
+		return podOnly
+	case "PodContainers":
+		return podContainers
+	default:
+		return ownerContainer
+	}
+}
 
+func getJobLogs(clientset kubernetes.Interface, pod corev1.Pod, cronJobName string, mode logMode) string {
+	switch mode {
+	case podContainers:
+		if len(pod.Spec.Containers) == 1 {
+			return getPodLogs(clientset, pod, pod.Spec.Containers[0].Name)
+		}
+
+		b := strings.Builder{}
+		for _, c := range pod.Spec.Containers {
+			b.WriteString(fmt.Sprintf("Container %s logs:\r\n%s\r\n", c.Name, getPodLogs(clientset, pod, c.Name)))
+		}
+		return b.String()
+	case podOnly:
+		return getPodLogs(clientset, pod, "")
+	default:
+		return getPodLogs(clientset, pod, cronJobName)
+	}
+}
+
+func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, containerName string) string {
+	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: containerName})
 	podLogs, err := req.Stream(context.TODO())
 	if err != nil {
 		return err.Error()
