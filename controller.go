@@ -221,7 +221,8 @@ func NewController(
 				}
 				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 			}
-		}, DeleteFunc: func(obj interface{}) {
+		},
+		DeleteFunc: func(obj interface{}) {
 			deletedJob := obj.(*batchv1.Job)
 			delete(notifiedJobs, deletedJob.Name)
 		},
