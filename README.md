@@ -45,6 +45,14 @@ Also it's possible to suppress notification per job:
 - Datadog service checks are sent when the Job succeeds or fails.
 - More information https://docs.datadoghq.com/developers/service_checks/dogstatsd_service_checks_submission/
 
+### Job with multiple containers logging
+
+By default for cron jobs logs are attached from container with the same name as a cron job. This can be overwritten by adding *kube-job-notifier/log-mode* annotation. 
+
+- *ownerContainer* - get logs only from container with the same name as cron job (default behaviour if annotation is not presented);
+- *podOnly* - get logs from the pod, works perfectly with pod with single container;
+- *podContainers* - get logs from all pod containers and concatenate them. 
+
 ### Run
 
 #### Local
