@@ -3,7 +3,7 @@ WORKDIR /go/src/app
 COPY . /go/src/app
 RUN go build -o ./kube-job-notifier *.go
 
-FROM alpine:3.16
+FROM alpine:3.17
 LABEL maintainer="yutachaos <bumplive@gmail.com>"
 
 COPY --from=build-env /go/src/app/kube-job-notifier .
