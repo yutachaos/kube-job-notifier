@@ -42,7 +42,7 @@ func newDatadog() datadog {
 }
 
 func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
-	if isSubscriptionSuppressed(jobInfo.Annotations, suppressFailedAnnotationName) {
+	if isSubscriptionSuppressed(jobInfo.Annotations, suppressSuccessAnnotationName) {
 		klog.Infof("Notification for %s is suppressed", jobInfo.Name)
 		return nil
 	}
@@ -66,7 +66,7 @@ func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
 }
 
 func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
-	if isSubscriptionSuppressed(jobInfo.Annotations, suppressSuccessAnnotationName) {
+	if isSubscriptionSuppressed(jobInfo.Annotations, suppressFailedAnnotationName) {
 		klog.Infof("Notification for %s is suppressed", jobInfo.Name)
 		return nil
 	}
