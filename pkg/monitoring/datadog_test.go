@@ -22,3 +22,51 @@ func TestNewDatadog(t *testing.T) {
 	assert.Empty(t, actual.client.Namespace)
 	assert.Equal(t, []string{}, actual.client.Tags)
 }
+
+func TestisSubscriptionSuppressed(t *testing.T) {
+	tests := []struct {
+		Name                   string
+		annotations            map[string]string
+		suppressAnnotationName string
+		expected               bool
+	}{
+		{
+			"No annotations",
+			map[string]string{
+				"kube-job-notifier/foo": "bar",
+			},
+			"kube-job-notifier/suppress-success-datadog-subscription",
+			false,
+		},
+		{
+			"Annotation not true",
+			map[string]string{
+				"kube-job-notifier/suppress-success-datadog-subscription": "false",
+			},
+			"kube-job-notifier/suppress-success-datadog-subscription",
+			false,
+		},
+		{
+			"Annotation true",
+			map[string]string{
+				"kube-job-notifier/suppress-success-datadog-subscription": "true",
+			},
+			"kube-job-notifier/suppress-success-datadog-subscription",
+			true,
+		},
+		{
+			"Nil annotation not break",
+			nil,
+			"kube-job-notifier/suppress-success-datadog-subscription",
+			false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			result := isSubscriptionSuppressed(test.annotations, test.suppressAnnotationName)
+
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}

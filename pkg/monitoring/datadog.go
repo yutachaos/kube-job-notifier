@@ -7,9 +7,11 @@ import (
 )
 
 const (
-	defaultStatsAddrUDS = "unix:///var/run/datadog/dsd.socket"
-	hostName            = "kube-job-notifier"
-	serviceCheckName    = "kube_job_notifier.job.status"
+	defaultStatsAddrUDS           = "unix:///var/run/datadog/dsd.socket"
+	hostName                      = "kube-job-notifier"
+	serviceCheckName              = "kube_job_notifier.job.status"
+	suppressSuccessAnnotationName = "kube-job-notifier/suppress-success-datadog-subscription"
+	suppressFailedAnnotationName  = "kube-job-notifier/suppress-failed-datadog-subscription"
 )
 
 type datadog struct {
@@ -40,6 +42,10 @@ func newDatadog() datadog {
 }
 
 func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
+	if isSubscriptionSuppressed(jobInfo.Annotations, suppressFailedAnnotationName) {
+		klog.Infof("Notification for %s is suppressed", jobInfo.Name)
+		return nil
+	}
 	sc := &statsd.ServiceCheck{
 		Name:     serviceCheckName,
 		Status:   statsd.Ok,
@@ -60,6 +66,10 @@ func (d datadog) SuccessEvent(jobInfo JobInfo) (err error) {
 }
 
 func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
+	if isSubscriptionSuppressed(jobInfo.Annotations, suppressSuccessAnnotationName) {
+		klog.Infof("Notification for %s is suppressed", jobInfo.Name)
+		return nil
+	}
 	sc := &statsd.ServiceCheck{
 		Name:     serviceCheckName,
 		Status:   statsd.Critical,
@@ -77,4 +87,12 @@ func (d datadog) FailEvent(jobInfo JobInfo) (err error) {
 	}
 	klog.Infof("Event subscribe successfully %s", jobInfo.getJobName())
 	return nil
+}
+
+func isSubscriptionSuppressed(annotations map[string]string, annotationName string) bool {
+	a, ok := annotations[annotationName]
+	if !ok {
+		return false
+	}
+	return a == "true"
 }
