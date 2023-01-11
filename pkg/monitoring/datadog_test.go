@@ -55,6 +55,22 @@ func TestisSubscriptionSuppressed(t *testing.T) {
 			true,
 		},
 		{
+			"Annotation not true",
+			map[string]string{
+				"kube-job-notifier/suppress-failed-datadog-subscription": "false",
+			},
+			"kube-job-notifier/suppress-failed-datadog-subscription",
+			false,
+		},
+		{
+			"Annotation true",
+			map[string]string{
+				"kube-job-notifier/suppress-failed-datadog-subscription": "true",
+			},
+			"kube-job-notifier/suppress-failed-datadog-subscription",
+			true,
+		},
+		{
 			"Nil annotation not break",
 			nil,
 			"kube-job-notifier/suppress-success-datadog-subscription",
