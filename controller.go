@@ -234,7 +234,7 @@ func NewController(
 }
 
 // Run is Kubernetes Controller execute method
-func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
+func (c *Controller) Run(stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 
 	klog.Info("Starting kubernetes job notify controller")
