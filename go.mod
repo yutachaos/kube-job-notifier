@@ -7,7 +7,7 @@ require (
 	github.com/Songmu/flextime v0.1.0
 	github.com/slack-go/slack v0.10.2
 	github.com/stretchr/testify v1.8.0
-	github.com/thoas/go-funk v0.9.2
+	github.com/thoas/go-funk v0.9.3
 	k8s.io/api v0.23.5
 	k8s.io/apimachinery v0.23.5
 	k8s.io/client-go v0.23.5
