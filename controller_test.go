@@ -2,9 +2,11 @@ package main
 
 import (
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	utilpointer "k8s.io/utils/pointer"
@@ -139,6 +141,177 @@ func TestIsCompletedJob(t *testing.T) {
 	}
 }
 
+func TestGetLogMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		annotation  string
+		expected    logMode
+	}{
+		{
+			name: "owner container",
+			annotations: map[string]string{
+				"foo": "bar",
+			},
+			annotation: "",
+			expected:   ownerContainer,
+		},
+		{
+			name: "owner container",
+			annotations: map[string]string{
+				"foo":                     "bar",
+				"logging.k8s.io/log-mode": "OwnerContainer",
+			},
+			annotation: "logging.k8s.io/log-mode",
+			expected:   ownerContainer,
+		},
+		{
+			name: "pod only",
+			annotations: map[string]string{
+				"foo":                     "bar",
+				"logging.k8s.io/log-mode": "PodOnly",
+			},
+			annotation: "logging.k8s.io/log-mode",
+			expected:   podOnly,
+		},
+		{
+			name: "pod containers",
+			annotations: map[string]string{
+				"foo":                     "bar",
+				"logging.k8s.io/log-mode": "PodContainers",
+			},
+			annotation: "logging.k8s.io/log-mode",
+			expected:   podContainers,
+		},
+		{
+			name: "invalid",
+			annotations: map[string]string{
+				"foo":                     "bar",
+				"logging.k8s.io/log-mode": "invalid",
+			},
+			annotation: "logging.k8s.io/log-mode",
+			expected:   ownerContainer,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := getLogMode(test.annotations, test.annotation)
+			if actual != test.expected {
+				t.Errorf("expected log mode %d, but got %d", test.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetJobLogs(t *testing.T) {
+	type args struct {
+		clientset   kubernetes.Interface
+		pod         corev1.Pod
+		cronJobName string
+		mode        logMode
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "get logs from pod with one container",
+			args: args{
+				clientset: fake.NewSimpleClientset(&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pod",
+						Namespace: "test-ns",
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: "test-container"},
+						},
+					},
+				}),
+				pod: corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pod",
+						Namespace: "test-ns",
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: "test-container"},
+						},
+					},
+				},
+				cronJobName: "",
+				mode:        podContainers,
+			},
+			want: "fake logs",
+		},
+		{
+			name: "get logs from pod with multiple containers",
+			args: args{
+				clientset: fake.NewSimpleClientset(&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pod",
+						Namespace: "test-ns",
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: "test-container1"},
+							{Name: "test-container2"},
+						},
+					},
+				}),
+				pod: corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pod",
+						Namespace: "test-ns",
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{Name: "test-container1"},
+							{Name: "test-container2"},
+						},
+					}},
+				cronJobName: "",
+				mode:        podContainers,
+			},
+			want: "Container test-container1 logs:\r\nfake logs\r\nContainer test-container2 logs:\r\nfake logs\r\n",
+		},
+		{
+			name: "get logs from pod only",
+			args: args{
+				clientset: fake.NewSimpleClientset(&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pod",
+						Namespace: "test-ns",
+					},
+				}),
+				pod:         corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"}},
+				cronJobName: "",
+				mode:        podOnly,
+			},
+			want: "fake logs",
+		},
+		{
+			name: "get logs from cron job",
+			args: args{
+				clientset:   fake.NewSimpleClientset(),
+				pod:         corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"}},
+				cronJobName: "test-cronjob",
+				mode:        ownerContainer,
+			},
+			want: "fake logs",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			if got := getJobLogs(tt.args.clientset, tt.args.pod, tt.args.cronJobName, tt.args.mode); got != tt.want {
+				t.Errorf("getJobLogs() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 func addListPodsReactor(fakeClient *fake.Clientset, obj runtime.Object) *fake.Clientset {
 	fakeClient.AddReactor("list", "pods", func(action core.Action) (handled bool, ret runtime.Object, err error) {
 		return true, obj, nil
