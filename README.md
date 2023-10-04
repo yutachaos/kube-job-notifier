@@ -40,6 +40,12 @@ Also it's possible to suppress notification per job:
 - kube-job-notifier/suppress-started-notification - suppress notification when job is started even if SLACK_STARTED_NOTIFY environment variable set to true 
 - kube-job-notifier/suppress-failed-notification - suppress notification when job is failed even if SLACK_FAILED_NOTIFY environment variable set to true 
 ```
+#### slack permissions
+- Required permission above.
+```
+chat:write
+files:write
+```
 
 ### Event subscription setting(Current Datadog support only)
 - Datadog service checks are sent when the Job succeeds or fails.
