@@ -6,7 +6,7 @@ require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible
 	github.com/Songmu/flextime v0.1.0
 	github.com/slack-go/slack v0.12.1
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.9.0
 	github.com/thoas/go-funk v0.9.3
 	k8s.io/api v0.26.3
 	k8s.io/apimachinery v0.26.3
@@ -41,7 +41,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
 	golang.org/x/sys v0.5.0 // indirect
