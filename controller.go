@@ -80,7 +80,7 @@ func NewController(
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
-			klog.Infof("Job Added: %v", newJob.Status)
+			klog.Infof("Job added: %v", newJob.Status)
 
 			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
 				return
@@ -134,6 +134,8 @@ func NewController(
 					klog.Errorf("Get pods failed: %v", err)
 					return
 				}
+				klog.Infof("Get pod info: %v", jobPod)
+
 				cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
 
 				if err != nil {
