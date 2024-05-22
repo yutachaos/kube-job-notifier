@@ -80,7 +80,7 @@ func NewController(
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
 			newJob := new.(*batchv1.Job)
-			klog.Infof("Job Added: %v", newJob.Status)
+			klog.Infof("Job added: %v", newJob.Status)
 
 			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
 				return
@@ -91,6 +91,14 @@ func NewController(
 			}
 
 			klog.Infof("Job started: %v", newJob.Status)
+
+			jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
+			err = waitForPodRunning(kubeclientset, jobPod)
+
+			if err != nil {
+				klog.Errorf("Error waiting for pod to become running: %v", jobPod)
+				return
+			}
 
 			cronJob, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
 
@@ -127,6 +135,14 @@ func NewController(
 				return
 			}
 
+			jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
+			err = waitForPodRunning(kubeclientset, jobPod)
+
+			if err != nil {
+				klog.Errorf("Error waiting for pod to become running: %v", err)
+				return
+			}
+
 			if newJob.Status.Succeeded == intTrue {
 				klog.Infof("Job succeeded: Name: %s: Status: %v", newJob.Name, newJob.Status)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
@@ -134,6 +150,7 @@ func NewController(
 					klog.Errorf("Get pods failed: %v", err)
 					return
 				}
+
 				cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
 
 				if err != nil {
@@ -383,4 +400,28 @@ func getPodLogs(clientset kubernetes.Interface, pod corev1.Pod, containerName st
 		return err.Error()
 	}
 	return str
+}
+
+func waitForPodRunning(clientset kubernetes.Interface, pod corev1.Pod) error {
+	pollInterval := 10 * time.Second
+
+	timeout := 20 * time.Minute
+	deadline := time.Now().Add(timeout)
+
+	for {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for pod to become running")
+		}
+
+		pod, err := clientset.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("error getting pod: %v", err)
+		}
+
+		if pod.Status.Phase != corev1.PodPending {
+			return nil
+		}
+
+		time.Sleep(pollInterval)
+	}
 }
