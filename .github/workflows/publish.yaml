@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@master
       - name: Docker meta
         id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v4
+        uses: crazy-max/ghaction-docker-meta@v5
         with:
           images: yutachaos/kube-job-notifier
           tag-match: v(.*)
