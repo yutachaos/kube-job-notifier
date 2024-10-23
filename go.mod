@@ -8,7 +8,7 @@ require (
 	github.com/slack-go/slack v0.12.1
 	github.com/stretchr/testify v1.8.0
 	github.com/thoas/go-funk v0.9.3
-	k8s.io/api v0.26.3
+	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.26.3
 	k8s.io/client-go v0.26.3
 	k8s.io/klog v1.0.0
