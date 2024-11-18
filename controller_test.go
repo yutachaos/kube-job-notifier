@@ -1,6 +1,8 @@
 package main
 
 import (
+	"testing"
+
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -10,7 +12,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 	utilpointer "k8s.io/utils/pointer"
-	"testing"
 )
 
 func TestIsCompletedJob(t *testing.T) {
