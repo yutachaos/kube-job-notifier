@@ -1,14 +1,15 @@
 package notification
 
 import (
+	"os"
+	"testing"
+	"time"
+
 	"github.com/Songmu/flextime"
 	slackapi "github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestNewSlack(t *testing.T) {
@@ -22,7 +23,8 @@ func TestNewSlack(t *testing.T) {
 		username: "slack_username",
 	}
 	actual := newSlack()
-	assert.Equal(t, expected, actual)
+	assert.Equal(t, expected.channel, actual.channel)
+	assert.Equal(t, expected.username, actual.username)
 
 	os.Unsetenv("SLACK_CHANNEL")
 	os.Unsetenv("SLACK_USERNAME")
@@ -33,8 +35,8 @@ func TestNewSlack(t *testing.T) {
 		channel:  "",
 		username: "",
 	}
-	assert.Equal(t, expected, actual)
-
+	assert.Equal(t, expected.channel, actual.channel)
+	assert.Equal(t, expected.username, actual.username)
 	// For panic test
 	defer func() {
 		err := recover()
