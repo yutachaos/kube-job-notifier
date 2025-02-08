@@ -10,9 +10,9 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/stretchr/testify v1.9.0
 	github.com/thoas/go-funk v0.9.3
-	k8s.io/api v0.31.2
-	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.2
+	k8s.io/api v0.29.0
+	k8s.io/apimachinery v0.29.0
+	k8s.io/client-go v0.29.0
 	k8s.io/klog v1.0.0
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
 )
@@ -21,7 +21,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
-	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
@@ -45,7 +45,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/net v0.31.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
@@ -53,7 +52,6 @@ require (
 	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
-	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
@@ -63,4 +61,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/imdario/mergo => github.com/imdario/mergo v1.0.1
+replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.12
