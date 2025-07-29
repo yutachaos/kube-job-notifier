@@ -7,8 +7,8 @@ toolchain go1.23.3
 require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible
 	github.com/Songmu/flextime v0.1.0
-	github.com/slack-go/slack v0.15.0
-	github.com/stretchr/testify v1.9.0
+	github.com/slack-go/slack v0.17.3
+	github.com/stretchr/testify v1.10.0
 	github.com/thoas/go-funk v0.9.3
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
