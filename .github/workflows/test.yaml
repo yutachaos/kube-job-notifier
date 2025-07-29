@@ -3,10 +3,6 @@ name: Update Dependencies and Test
 on:
   pull_request:
     types: [opened, synchronize]
-    paths:
-      - 'go.mod'
-      - 'go.sum'
-      - '**.go'
   push:
     branches:
       - main
