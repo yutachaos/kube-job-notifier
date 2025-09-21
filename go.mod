@@ -11,7 +11,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/thoas/go-funk v0.9.3
 	k8s.io/api v0.28.4
-	k8s.io/apimachinery v0.28.4
+	k8s.io/apimachinery v0.34.1
 	k8s.io/client-go v0.28.4
 	k8s.io/klog v1.0.0
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
