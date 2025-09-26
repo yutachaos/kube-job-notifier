@@ -1,6 +1,9 @@
 package notification
 
 import (
+	"bytes"
+	"io"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -492,4 +495,49 @@ func TestIsNotificationSuppressed(t *testing.T) {
 			assert.Equal(t, test.expected, result)
 		})
 	}
+}
+
+func TestUploadLog_Success(t *testing.T) {
+	// stub HTTP
+	original := httpDo
+	defer func() { httpDo = original }()
+
+	httpDo = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Host == "slack.com" && req.URL.Path == "/api/files.getUploadURLExternal" && req.Method == http.MethodPost {
+			body := []byte(`{"ok":true,"upload_url":"https://uploads.slack.com/abc123","file_id":"F123"}`)
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(body))}, nil
+		}
+		if req.URL.Host == "uploads.slack.com" && req.Method == http.MethodPut {
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(nil))}, nil
+		}
+		if req.URL.Host == "slack.com" && req.URL.Path == "/api/files.completeUploadExternal" && req.Method == http.MethodPost {
+			body := []byte(`{"ok":true,"files":[{"id":"F123","name":"ns_job.txt","permalink":"https://slack-files.com/TX/F123"}]}`)
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(body))}, nil
+		}
+		t.Fatalf("unexpected request: %s %s", req.Method, req.URL.String())
+		return nil, nil
+	}
+
+	os.Setenv("SLACK_TOKEN", "xoxb-test")
+	defer os.Unsetenv("SLACK_TOKEN")
+
+	s := slack{client: &MockSlackClient{}, channel: "C123", username: "bot"}
+	file, err := s.uploadLog(MessageTemplateParam{Namespace: "ns", JobName: "job", Log: "hello"})
+	assert.NoError(t, err)
+	assert.Equal(t, "ns_job.txt", file.Name)
+	assert.Equal(t, "https://slack-files.com/TX/F123", file.Permalink)
+}
+
+func TestUploadLog_TokenMissing(t *testing.T) {
+	original := httpDo
+	defer func() { httpDo = original }()
+	httpDo = func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("httpDo should not be called when token is missing")
+		return nil, nil
+	}
+
+	os.Unsetenv("SLACK_TOKEN")
+	s := slack{client: &MockSlackClient{}, channel: "C123", username: "bot"}
+	_, err := s.uploadLog(MessageTemplateParam{Namespace: "ns", JobName: "job", Log: "hello"})
+	assert.Error(t, err)
 }
