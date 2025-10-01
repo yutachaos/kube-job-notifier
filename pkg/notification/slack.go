@@ -2,25 +2,11 @@ package notification
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
 	slackapi "github.com/slack-go/slack"
 	"html/template"
-	"io"
 	"k8s.io/klog"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
-	"strings"
-	"time"
 )
-
-// httpDo is a package-level variable to allow tests to stub HTTP requests easily.
-var httpDo = func(req *http.Request) (*http.Response, error) {
-	return http.DefaultClient.Do(req)
-}
 
 const (
 	START                = "start"
@@ -52,7 +38,6 @@ var slackColors = map[string]string{
 
 type slackClient interface {
 	PostMessage(channelID string, options ...slackapi.MsgOption) (string, string, error)
-	// Deprecated in Slack API: kept for backward compatibility in tests, but no longer used
 	UploadFile(params slackapi.FileUploadParameters) (file *slackapi.File, err error)
 }
 
@@ -266,126 +251,20 @@ func (s slack) notify(attachment slackapi.Attachment) (err error) {
 }
 
 func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err error) {
-	// External upload flow per Slack deprecation of files.upload
-	// 1) Call files.getUploadURLExternal to obtain an upload URL and file ID
-	token := os.Getenv("SLACK_TOKEN")
-	if token == "" {
-		return nil, fmt.Errorf("SLACK_TOKEN is not set")
-	}
-
-	title := param.Namespace + "_" + param.JobName
-	content := param.Log
-	contentBytes := []byte(content)
-	length := len(contentBytes)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Step 1: get upload URL
-	form := url.Values{}
-	form.Set("filename", title+".txt")
-	form.Set("length", strconv.Itoa(length))
-	getURLReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://slack.com/api/files.getUploadURLExternal", strings.NewReader(form.Encode()))
+	file, err = s.client.UploadFile(
+		slackapi.FileUploadParameters{
+			Title:    param.Namespace + "_" + param.JobName,
+			Content:  param.Log,
+			Filetype: "txt",
+			Channels: []string{s.channel},
+		})
 	if err != nil {
-		return nil, err
-	}
-	getURLReq.Header.Set("Authorization", "Bearer "+token)
-	getURLReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := httpDo(getURLReq)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("files.getUploadURLExternal failed: status=%d body=%s", resp.StatusCode, string(b))
+		klog.Errorf("File uploadLog failed %s\n", err)
+		return
 	}
 
-	var getURLRes struct {
-		OK        bool   `json:"ok"`
-		UploadURL string `json:"upload_url"`
-		FileID    string `json:"file_id"`
-		Error     string `json:"error"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&getURLRes); err != nil {
-		return nil, err
-	}
-	if !getURLRes.OK {
-		return nil, fmt.Errorf("files.getUploadURLExternal error: %s", getURLRes.Error)
-	}
-
-	// 2) Upload bytes to the pre-signed URL with PUT
-	putReq, err := http.NewRequestWithContext(ctx, http.MethodPut, getURLRes.UploadURL, bytes.NewReader(contentBytes))
-	if err != nil {
-		return nil, err
-	}
-	putReq.Header.Set("Content-Type", "text/plain")
-	putReq.Header.Set("Content-Length", strconv.Itoa(length))
-	putResp, err := httpDo(putReq)
-	if err != nil {
-		return nil, err
-	}
-	defer putResp.Body.Close()
-	if putResp.StatusCode < 200 || putResp.StatusCode >= 300 {
-		b, _ := io.ReadAll(putResp.Body)
-		return nil, fmt.Errorf("upload to upload_url failed: status=%d body=%s", putResp.StatusCode, string(b))
-	}
-
-	// 3) Complete upload to share into the channel
-	completeBody := struct {
-		ChannelID string `json:"channel_id"`
-		Files     []struct {
-			ID    string `json:"id"`
-			Title string `json:"title"`
-		} `json:"files"`
-	}{
-		ChannelID: s.channel,
-		Files: []struct {
-			ID    string `json:"id"`
-			Title string `json:"title"`
-		}{{ID: getURLRes.FileID, Title: title + ".txt"}},
-	}
-
-	bodyBytes, err := json.Marshal(completeBody)
-	if err != nil {
-		return nil, err
-	}
-
-	completeReq, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://slack.com/api/files.completeUploadExternal", bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, err
-	}
-	completeReq.Header.Set("Authorization", "Bearer "+token)
-	completeReq.Header.Set("Content-Type", "application/json")
-
-	completeResp, err := httpDo(completeReq)
-	if err != nil {
-		return nil, err
-	}
-	defer completeResp.Body.Close()
-	if completeResp.StatusCode < 200 || completeResp.StatusCode >= 300 {
-		b, _ := io.ReadAll(completeResp.Body)
-		return nil, fmt.Errorf("files.completeUploadExternal failed: status=%d body=%s", completeResp.StatusCode, string(b))
-	}
-
-	var completeRes struct {
-		OK    bool            `json:"ok"`
-		Files []slackapi.File `json:"files"`
-		Error string          `json:"error"`
-	}
-	if err := json.NewDecoder(completeResp.Body).Decode(&completeRes); err != nil {
-		return nil, err
-	}
-	if !completeRes.OK {
-		return nil, fmt.Errorf("files.completeUploadExternal error: %s", completeRes.Error)
-	}
-	if len(completeRes.Files) == 0 {
-		return nil, fmt.Errorf("files.completeUploadExternal returned no files")
-	}
-
-	klog.Infof("File uploadLog successfully %s", completeRes.Files[0].Name)
-	return &completeRes.Files[0], nil
+	klog.Infof("File uploadLog successfully %s", file.Name)
+	return
 }
 
 func isNotifyFromEnv(key string) bool {
