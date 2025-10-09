@@ -61,4 +61,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.8
+replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
