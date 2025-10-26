@@ -1,9 +1,11 @@
 package notification
 
 import (
+	"os"
+	"time"
+
 	"github.com/Songmu/flextime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 type MessageTemplateParam struct {
@@ -36,8 +38,11 @@ type Notification interface {
 
 func NewNotifications() map[string]Notification {
 	res := make(map[string]Notification)
-	// default notification
-	res["slack"] = newSlack()
-	res["msteamsv2"] = newMsTeamsV2()
+	if os.Getenv("SLACK_ENABLED") == "true" {
+		res["slack"] = newSlack()
+	}
+	if os.Getenv("MSTEAMSV2_ENABLED") == "true" {
+		res["msteamsv2"] = newMsTeamsV2()
+	}
 	return res
 }

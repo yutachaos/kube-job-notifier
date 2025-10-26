@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/yutachaos/kube-job-notifier/pkg/signals"
+	"github.com/remmercier/kube-job-notifier/pkg/signals"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

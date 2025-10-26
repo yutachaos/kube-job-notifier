@@ -1,7 +1,13 @@
 package notification
 
 import (
-	"github.com/remmercier/kube-job-notifier/pkg/httpclient"
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+
+	"k8s.io/klog"
 )
 
 const (
@@ -49,7 +55,13 @@ type MsTeamsV2 struct {
 }
 
 func newMsTeamsV2() MsTeamsV2 {
-	return MsTeamsV2{}
+	webhookURL := os.Getenv("MSTEAMSV2_WEBHOOK_URL")
+	if webhookURL == "" {
+		panic("please set webhook URL for MSTeamsV2")
+	}
+	return MsTeamsV2{
+		webhookURL: webhookURL,
+	}
 }
 
 // NotifyFailed implements Notification.
@@ -59,7 +71,25 @@ func (m MsTeamsV2) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 
 // NotifyStart implements Notification.
 func (m MsTeamsV2) NotifyStart(messageParam MessageTemplateParam) (err error) {
-	panic("unimplemented")
+
+	var body io.Reader
+	t := m.GetTeamsMessage("Job Start", "The job is started", colorGreen)
+	var payload bytes.Buffer
+	if err = json.NewEncoder(&payload).Encode(t); err != nil {
+		return err
+	}
+
+	body = &payload
+
+	resp, err := http.Post(m.webhookURL, "application/json", body)
+	if resp != nil {
+		klog.Infof("HTTP Response Status: %s", resp.Status)
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+
 }
 
 // NotifySuccess implements Notification.
