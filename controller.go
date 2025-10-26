@@ -47,10 +47,9 @@ var serverStartTime time.Time
 
 // Controller is Kubernetes Controller struct
 type Controller struct {
-	kubeclientset kubernetes.Interface
-	jobsLister    batcheslisters.JobLister
-	jobsSynced    cache.InformerSynced
-	recorder      record.EventRecorder
+	jobsLister batcheslisters.JobLister
+	jobsSynced cache.InformerSynced
+	recorder   record.EventRecorder
 }
 
 // NewController returns a new controller
@@ -92,8 +91,8 @@ func NewController(
 
 			klog.Infof("Job started: %v", newJob.Status)
 
-			jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
-			err = waitForPodRunning(kubeclientset, jobPod)
+			jobPod, _ := getPodFromControllerUID(kubeclientset, newJob)
+			err := waitForPodRunning(kubeclientset, jobPod)
 
 			if err != nil {
 				klog.Errorf("Error waiting for pod to become running: %v", jobPod)
@@ -135,8 +134,8 @@ func NewController(
 				return
 			}
 
-			jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
-			err = waitForPodRunning(kubeclientset, jobPod)
+			jobPod, _ := getPodFromControllerUID(kubeclientset, newJob)
+			err := waitForPodRunning(kubeclientset, jobPod)
 
 			if err != nil {
 				klog.Errorf("Error waiting for pod to become running: %v", err)
