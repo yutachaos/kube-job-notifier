@@ -78,7 +78,7 @@ func NewController(
 
 	klog.Info("Setting event handlers")
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(new interface{}) {
+		AddFunc: func(new any) {
 			newJob := new.(*batchv1.Job)
 			klog.Infof("Job added: %v", newJob.Status)
 
@@ -86,7 +86,7 @@ func NewController(
 				return
 			}
 
-			if notifiedJobs[newJob.Name] == true {
+			if notifiedJobs[newJob.Name] {
 				return
 			}
 
@@ -111,7 +111,7 @@ func NewController(
 				CronJobName: cronJob,
 				Namespace:   newJob.Namespace,
 				StartTime:   newJob.Status.StartTime,
-				Annotations: newJob.Spec.Template.ObjectMeta.Annotations,
+				Annotations: newJob.Spec.Template.Annotations,
 			}
 			for name, n := range notifications {
 				err := n.NotifyStart(messageParam)
@@ -121,7 +121,7 @@ func NewController(
 			}
 
 		},
-		UpdateFunc: func(old, new interface{}) {
+		UpdateFunc: func(old, new any) {
 			newJob := new.(*batchv1.Job)
 			oldJob := old.(*batchv1.Job)
 
@@ -131,7 +131,7 @@ func NewController(
 				return
 			}
 
-			if notifiedJobs[newJob.Name] == true {
+			if notifiedJobs[newJob.Name] {
 				return
 			}
 
@@ -157,7 +157,7 @@ func NewController(
 					klog.Errorf("Get cronjob failed: %v", err)
 					return
 				}
-				annotations := newJob.Spec.Template.ObjectMeta.Annotations
+				annotations := newJob.Spec.Template.Annotations
 				lm := getLogMode(annotations, logModeAnnotationName)
 				jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
 
@@ -185,7 +185,7 @@ func NewController(
 							CronJobName: cronJobName,
 							Name:        newJob.Name,
 							Namespace:   newJob.Namespace,
-							Annotations: newJob.Spec.Template.ObjectMeta.Annotations,
+							Annotations: newJob.Spec.Template.Annotations,
 						})
 					if err != nil {
 						klog.Errorf("Fail event subscribe.: %v", err)
@@ -207,7 +207,7 @@ func NewController(
 					return
 				}
 
-				annotations := newJob.Spec.Template.ObjectMeta.Annotations
+				annotations := newJob.Spec.Template.Annotations
 				lm := getLogMode(annotations, logModeAnnotationName)
 				jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
 
@@ -232,7 +232,7 @@ func NewController(
 							CronJobName: cronJobName,
 							Name:        newJob.Name,
 							Namespace:   newJob.Namespace,
-							Annotations: newJob.Spec.Template.ObjectMeta.Annotations,
+							Annotations: newJob.Spec.Template.Annotations,
 						})
 					if err != nil {
 						klog.Errorf("Fail event subscribe.: %v", err)
@@ -241,7 +241,7 @@ func NewController(
 				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
 			}
 		},
-		DeleteFunc: func(obj interface{}) {
+		DeleteFunc: func(obj any) {
 			deletedJob := obj.(*batchv1.Job)
 			delete(notifiedJobs, deletedJob.Name)
 		},
