@@ -145,3 +145,6 @@ Temporary Items
 .envrc
 
 *.tgz
+
+# asdf
+.tool-versions
