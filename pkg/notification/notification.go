@@ -38,5 +38,6 @@ func NewNotifications() map[string]Notification {
 	res := make(map[string]Notification)
 	// default notification
 	res["slack"] = newSlack()
+	res["msteamsv2"] = newMsTeamsV2()
 	return res
 }

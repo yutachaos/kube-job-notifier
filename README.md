@@ -39,6 +39,9 @@ kubectl get po
 Configure using environment variables:
 
 ```bash
+export MSTEAMSV2_ENABLED=true
+export MSTEAMSV2_WEBHOOK_URL=YOUR_WEBHOOK_URL
+export SLACK_ENABLED=true
 export SLACK_TOKEN=YOUR_SLACK_TOKEN
 export SLACK_CHANNEL=YOUR_NOTIFICATION_CHANNEL_ID
 export SLACK_STARTED_NOTIFY=true      # Optional, default: true
