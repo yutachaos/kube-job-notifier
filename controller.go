@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -75,11 +76,26 @@ func NewController(
 	subscriptions := monitoring.NewSubscription()
 	datadogSubscription := subscriptions["datadog"]
 
+	regexEnv := os.Getenv("CRONJOB_REGEX")
+	var regex *regexp.Regexp
+	if regexEnv != "" {
+		regex = regexp.MustCompile(regexEnv)
+	}
+
 	klog.Info("Setting event handlers")
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new any) {
 			newJob := new.(*batchv1.Job)
 			klog.Infof("Job added: %v", newJob.Status)
+
+			cronJob, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
+			if err != nil {
+				klog.Errorf("Get cronjob failed: %v", err)
+			}
+
+			if regex != nil && !regex.MatchString(cronJob) {
+				return
+			}
 
 			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
 				return
@@ -92,32 +108,27 @@ func NewController(
 			klog.Infof("Job started: %v", newJob.Status)
 
 			jobPod, _ := getPodFromControllerUID(kubeclientset, newJob)
-			err := waitForPodRunning(kubeclientset, jobPod)
+			err = waitForPodRunning(kubeclientset, jobPod)
 
 			if err != nil {
 				klog.Errorf("Error waiting for pod to become running: %v", jobPod)
 				return
 			}
 
-			cronJob, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
-
-			if err != nil {
-				klog.Errorf("Get cronjob failed: %v", err)
-			}
-			klog.Infof("Job started: %v", newJob.Status)
-			messageParam := notification.MessageTemplateParam{
-				JobName:     newJob.Name,
-				CronJobName: cronJob,
-				Namespace:   newJob.Namespace,
-				StartTime:   newJob.Status.StartTime,
-				Annotations: newJob.Spec.Template.Annotations,
-			}
-			for name, n := range notifications {
-				err := n.NotifyStart(messageParam)
-				if err != nil {
-					klog.Errorf("Failed %s notification: %v", name, err)
+				klog.Infof("Job started: %v", newJob.Status)
+				messageParam := notification.MessageTemplateParam{
+					JobName:     newJob.Name,
+					CronJobName: cronJob,
+					Namespace:   newJob.Namespace,
+					StartTime:   newJob.Status.StartTime,
+					Annotations: newJob.Spec.Template.Annotations,
 				}
-			}
+				for name, n := range notifications {
+					err := n.NotifyStart(messageParam)
+					if err != nil {
+						klog.Errorf("Failed %s notification: %v", name, err)
+					}
+				}
 
 		},
 		UpdateFunc: func(old, new any) {
@@ -126,6 +137,15 @@ func NewController(
 
 			klog.Infof("oldJob.Status:%v", oldJob.Status)
 			klog.Infof("newJob.Status:%v", newJob.Status)
+			cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
+			if err != nil {
+				klog.Errorf("Get cronjob failed: %v", err)
+			}
+
+			if regex != nil && !regex.MatchString(cronJobName) {
+				return
+			}
+
 			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
 				return
 			}
@@ -135,7 +155,7 @@ func NewController(
 			}
 
 			jobPod, _ := getPodFromControllerUID(kubeclientset, newJob)
-			err := waitForPodRunning(kubeclientset, jobPod)
+			err = waitForPodRunning(kubeclientset, jobPod)
 
 			if err != nil {
 				klog.Errorf("Error waiting for pod to become running: %v", err)
@@ -150,12 +170,6 @@ func NewController(
 					return
 				}
 
-				cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
-
-				if err != nil {
-					klog.Errorf("Get cronjob failed: %v", err)
-					return
-				}
 				annotations := newJob.Spec.Template.Annotations
 				lm := getLogMode(annotations, logModeAnnotationName)
 				jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
@@ -265,6 +279,10 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	klog.Info("Shutting down workers")
 
 	return nil
+}
+
+func isCronjobNameIncluded(cronjobName string, re *regexp.Regexp) bool {
+	return re != nil && re.MatchString(cronjobName)
 }
 
 func isCompletedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
