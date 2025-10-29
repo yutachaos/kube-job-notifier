@@ -2,10 +2,11 @@ package notification
 
 import (
 	"bytes"
-	slackapi "github.com/slack-go/slack"
 	"html/template"
-	"k8s.io/klog"
 	"os"
+
+	slackapi "github.com/slack-go/slack"
+	"k8s.io/klog"
 )
 
 const (
@@ -269,8 +270,5 @@ func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err e
 
 func isNotifyFromEnv(key string) bool {
 	value := os.Getenv(key)
-	if value == "false" {
-		return false
-	}
-	return true
+	return value != "false"
 }
