@@ -2,12 +2,10 @@ package notification
 
 import (
 	"bytes"
-	"fmt"
-	"html/template"
-	"os"
-
 	slackapi "github.com/slack-go/slack"
+	"html/template"
 	"k8s.io/klog"
+	"os"
 )
 
 const (
@@ -40,7 +38,7 @@ var slackColors = map[string]string{
 
 type slackClient interface {
 	PostMessage(channelID string, options ...slackapi.MsgOption) (string, string, error)
-	UploadFileV2(params slackapi.UploadFileV2Parameters) (*slackapi.FileSummary, error)
+	UploadFile(params slackapi.FileUploadParameters) (file *slackapi.File, err error)
 }
 
 type slack struct {
@@ -253,42 +251,20 @@ func (s slack) notify(attachment slackapi.Attachment) (err error) {
 }
 
 func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err error) {
-	filename := param.Namespace + "_" + param.JobName + ".txt"
-	title := param.Namespace + "_" + param.JobName
-
-	fileSummary, err := s.client.UploadFileV2(slackapi.UploadFileV2Parameters{
-		Channel:  s.channel,
-		Filename: filename,
-		FileSize: len(param.Log),
-		Content:  param.Log,
-		Title:    title,
-	})
+	file, err = s.client.UploadFile(
+		slackapi.FileUploadParameters{
+			Title:    param.Namespace + "_" + param.JobName,
+			Content:  param.Log,
+			Filetype: "txt",
+			Channels: []string{s.channel},
+		})
 	if err != nil {
-		klog.Errorf("File upload failed %s\n", err)
-		return nil, err
+		klog.Errorf("File uploadLog failed %s\n", err)
+		return
 	}
 
-	klog.Infof("File uploaded successfully: %s", fileSummary.Title)
-
-	var permalink string
-	if realClient, ok := s.client.(*slackapi.Client); ok {
-		fileInfo, _, _, err := realClient.GetFileInfo(fileSummary.ID, 0, 0)
-		if err != nil {
-			klog.Warningf("Failed to get file info for permalink: %s, using fallback\n", err)
-			permalink = fmt.Sprintf("https://files.slack.com/files-pri/%s/%s", fileSummary.ID, filename)
-		} else {
-			permalink = fileInfo.Permalink
-		}
-	} else {
-		permalink = fmt.Sprintf("https://files.slack.com/files-pri/%s/%s", fileSummary.ID, filename)
-	}
-
-	return &slackapi.File{
-		ID:        fileSummary.ID,
-		Name:      filename,
-		Title:     fileSummary.Title,
-		Permalink: permalink,
-	}, nil
+	klog.Infof("File uploadLog successfully %s", file.Name)
+	return
 }
 
 func isNotifyFromEnv(key string) bool {
