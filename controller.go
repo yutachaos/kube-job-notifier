@@ -107,28 +107,32 @@ func NewController(
 
 			klog.Infof("Job started: %v", newJob.Status)
 
-			jobPod, _ := getPodFromControllerUID(kubeclientset, newJob)
-			err = waitForPodRunning(kubeclientset, jobPod)
+			jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
+			if err != nil {
+				klog.Errorf("Get pods failed: %v", err)
+				return
+			}
 
+			err = waitForPodRunning(kubeclientset, jobPod)
 			if err != nil {
 				klog.Errorf("Error waiting for pod to become running: %v", jobPod)
 				return
 			}
 
-				klog.Infof("Job started: %v", newJob.Status)
-				messageParam := notification.MessageTemplateParam{
-					JobName:     newJob.Name,
-					CronJobName: cronJob,
-					Namespace:   newJob.Namespace,
-					StartTime:   newJob.Status.StartTime,
-					Annotations: newJob.Spec.Template.Annotations,
+			klog.Infof("Job started: %v", newJob.Status)
+			messageParam := notification.MessageTemplateParam{
+				JobName:     newJob.Name,
+				CronJobName: cronJob,
+				Namespace:   newJob.Namespace,
+				StartTime:   newJob.Status.StartTime,
+				Annotations: newJob.Spec.Template.Annotations,
+			}
+			for name, n := range notifications {
+				err := n.NotifyStart(messageParam)
+				if err != nil {
+					klog.Errorf("Failed %s notification: %v", name, err)
 				}
-				for name, n := range notifications {
-					err := n.NotifyStart(messageParam)
-					if err != nil {
-						klog.Errorf("Failed %s notification: %v", name, err)
-					}
-				}
+			}
 
 		},
 		UpdateFunc: func(old, new any) {
@@ -154,9 +158,13 @@ func NewController(
 				return
 			}
 
-			jobPod, _ := getPodFromControllerUID(kubeclientset, newJob)
-			err = waitForPodRunning(kubeclientset, jobPod)
+			jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
+			if err != nil {
+				klog.Errorf("Get pods failed: %v", err)
+				return
+			}
 
+			err = waitForPodRunning(kubeclientset, jobPod)
 			if err != nil {
 				klog.Errorf("Error waiting for pod to become running: %v", err)
 				return
@@ -279,10 +287,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	klog.Info("Shutting down workers")
 
 	return nil
-}
-
-func isCronjobNameIncluded(cronjobName string, re *regexp.Regexp) bool {
-	return re != nil && re.MatchString(cronjobName)
 }
 
 func isCompletedJob(kubeclientset kubernetes.Interface, job *batchv1.Job) bool {
