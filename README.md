@@ -39,6 +39,9 @@ kubectl get po
 Configure using environment variables:
 
 ```bash
+export MSTEAMSV2_ENABLED=true
+export MSTEAMSV2_WEBHOOK_URL=YOUR_WEBHOOK_URL
+export SLACK_ENABLED=true
 export SLACK_TOKEN=YOUR_SLACK_TOKEN
 export SLACK_CHANNEL=YOUR_NOTIFICATION_CHANNEL_ID
 export SLACK_STARTED_NOTIFY=true      # Optional, default: true
@@ -47,8 +50,9 @@ export SLACK_FAILED_NOTIFY=true       # Optional, default: true
 export SLACK_USERNAME=YOUR_NOTIFICATION_USERNAME  # Optional
 export SLACK_SUCCEED_CHANNEL=YOUR_NOTIFICATION_CHANNEL_ID  # Optional
 export SLACK_FAILED_CHANNEL=YOUR_NOTIFICATION_CHANNEL_ID   # Optional
-export DATADOG_ENABLED=true           # Optional, default: false
-export NAMESPACE=KUBERNETES_NAMESPACE # Optional
+export DATADOG_ENABLED=true               # Optional, default: false
+export NAMESPACE=KUBERNETES_NAMESPACE     # Optional
+export CRONJOB_REGEX=REGEX                # Optional, if empty all cronjobs will be included
 ```
 
 ### Job Annotation Configuration

@@ -2,15 +2,16 @@ package main
 
 import (
 	"flag"
-	"github.com/yutachaos/kube-job-notifier/pkg/signals"
+	"os"
+	"os/user"
+	"path/filepath"
+
+	"github.com/remmercier/kube-job-notifier/pkg/signals"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
-	"os"
-	"os/user"
-	"path/filepath"
 )
 
 var (
