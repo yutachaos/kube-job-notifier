@@ -150,11 +150,17 @@ func NewController(
 				return
 			}
 
+			klog.Infof("Job %s: CreationTime=%v, ServerStartTime=%v, TimeDiff=%.2f seconds",
+				newJob.Name, newJob.CreationTimestamp, serverStartTime,
+				newJob.CreationTimestamp.Sub(serverStartTime).Seconds())
+
 			if newJob.CreationTimestamp.Sub(serverStartTime).Seconds() < 0 {
+				klog.Infof("Job %s: Skipping notification - Job created before server start", newJob.Name)
 				return
 			}
 
 			if notifiedJobs[newJob.Name] {
+				klog.Infof("Job %s: Skipping notification - Already notified", newJob.Name)
 				return
 			}
 
@@ -172,6 +178,7 @@ func NewController(
 
 			if newJob.Status.Succeeded == intTrue {
 				klog.Infof("Job succeeded: Name: %s: Status: %v", newJob.Name, newJob.Status)
+				klog.Infof("Job %s: Starting success notification process", newJob.Name)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
@@ -192,10 +199,14 @@ func NewController(
 					Annotations:    annotations,
 				}
 
+				klog.Infof("Job %s: Sending notifications to %d notification services", newJob.Name, len(notifications))
 				for name, n := range notifications {
+					klog.Infof("Job %s: Sending %s notification", newJob.Name, name)
 					err = n.NotifySuccess(messageParam)
 					if err != nil {
-						klog.Errorf("Failed %s n: %v", name, err)
+						klog.Errorf("Failed %s notification for job %s: %v", name, newJob.Name, err)
+					} else {
+						klog.Infof("Job %s: %s notification sent successfully", newJob.Name, name)
 					}
 				}
 
@@ -213,9 +224,12 @@ func NewController(
 					}
 				}
 				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
+				isCompleted := isCompletedJob(kubeclientset, newJob)
+				klog.Infof("Job %s: Setting notified flag to %t", newJob.Name, isCompleted)
+				notifiedJobs[newJob.Name] = isCompleted
 			} else if newJob.Status.Failed == intTrue {
 				klog.Infof("Job failed: Name: %s: Status: %v", newJob.Name, newJob.Status)
+				klog.Infof("Job %s: Starting failure notification process", newJob.Name)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
 				if err != nil {
 					klog.Errorf("Get pods failed: %v", err)
@@ -241,10 +255,14 @@ func NewController(
 					Log:            jobLogStr,
 					Annotations:    annotations,
 				}
+				klog.Infof("Job %s: Sending failure notifications to %d notification services", newJob.Name, len(notifications))
 				for name, n := range notifications {
+					klog.Infof("Job %s: Sending %s failure notification", newJob.Name, name)
 					err := n.NotifyFailed(messageParam)
 					if err != nil {
-						klog.Errorf("Failed %s notification: %v", name, err)
+						klog.Errorf("Failed %s failure notification for job %s: %v", name, newJob.Name, err)
+					} else {
+						klog.Infof("Job %s: %s failure notification sent successfully", newJob.Name, name)
 					}
 				}
 				if os.Getenv("DATADOG_ENABLE") == "true" {
@@ -259,7 +277,9 @@ func NewController(
 						klog.Errorf("Fail event subscribe.: %v", err)
 					}
 				}
-				notifiedJobs[newJob.Name] = isCompletedJob(kubeclientset, newJob)
+				isCompleted := isCompletedJob(kubeclientset, newJob)
+				klog.Infof("Job %s: Setting failure notified flag to %t", newJob.Name, isCompleted)
+				notifiedJobs[newJob.Name] = isCompleted
 			}
 		},
 		DeleteFunc: func(obj any) {
