@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/remmercier/kube-job-notifier/pkg/monitoring"
-	"github.com/remmercier/kube-job-notifier/pkg/notification"
 	"github.com/thoas/go-funk"
+	"github.com/yutachaos/kube-job-notifier/pkg/monitoring"
+	"github.com/yutachaos/kube-job-notifier/pkg/notification"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,6 +134,10 @@ func NewController(
 				}
 			}
 
+			// Record that start notification was sent (keep false as completion notification will be sent separately)
+			// Completion notification will be sent in UpdateFunc, so we don't set it here
+			klog.V(4).Infof("Job %s: Start notification sent, waiting for completion", newJob.Name)
+
 		},
 		UpdateFunc: func(old, new any) {
 			newJob := new.(*batchv1.Job)
@@ -159,6 +163,20 @@ func NewController(
 				return
 			}
 
+			// Check if status has changed (only notify when succeeded or failed status changes)
+			oldSucceeded := oldJob.Status.Succeeded == intTrue
+			newSucceeded := newJob.Status.Succeeded == intTrue
+			oldFailed := oldJob.Status.Failed == intTrue
+			newFailed := newJob.Status.Failed == intTrue
+
+			// Skip if status hasn't changed
+			if oldSucceeded == newSucceeded && oldFailed == newFailed {
+				klog.V(4).Infof("Job %s: Status unchanged (oldSucceeded=%v, newSucceeded=%v, oldFailed=%v, newFailed=%v), skipping notification",
+					newJob.Name, oldSucceeded, newSucceeded, oldFailed, newFailed)
+				return
+			}
+
+			// Skip if completion notification has already been sent
 			if notifiedJobs[newJob.Name] {
 				klog.Infof("Job %s: Skipping notification - Already notified", newJob.Name)
 				return
@@ -176,7 +194,8 @@ func NewController(
 				return
 			}
 
-			if newJob.Status.Succeeded == intTrue {
+			// Only notify when succeeded status changes (newly succeeded)
+			if newJob.Status.Succeeded == intTrue && !oldSucceeded {
 				klog.Infof("Job succeeded: Name: %s: Status: %v", newJob.Name, newJob.Status)
 				klog.Infof("Job %s: Starting success notification process", newJob.Name)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
@@ -227,7 +246,7 @@ func NewController(
 				isCompleted := isCompletedJob(kubeclientset, newJob)
 				klog.Infof("Job %s: Setting notified flag to %t", newJob.Name, isCompleted)
 				notifiedJobs[newJob.Name] = isCompleted
-			} else if newJob.Status.Failed == intTrue {
+			} else if newJob.Status.Failed == intTrue && !oldFailed {
 				klog.Infof("Job failed: Name: %s: Status: %v", newJob.Name, newJob.Status)
 				klog.Infof("Job %s: Starting failure notification process", newJob.Name)
 				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)

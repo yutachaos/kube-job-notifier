@@ -2,6 +2,8 @@ package notification
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"html/template"
 	"os"
 
@@ -10,9 +12,6 @@ import (
 )
 
 const (
-	START                = "start"
-	SUCCESS              = "success"
-	FAILED               = "failed"
 	SlackMessageTemplate = `
 {{if .CronJobName}} *CronJobName*: {{.CronJobName}}{{end}}
  *JobName*: {{.JobName}}
@@ -39,33 +38,44 @@ var slackColors = map[string]string{
 
 type slackClient interface {
 	PostMessage(channelID string, options ...slackapi.MsgOption) (string, string, error)
-	UploadFile(params slackapi.FileUploadParameters) (file *slackapi.File, err error)
+	UploadFileV2Context(ctx context.Context, params slackapi.UploadFileV2Parameters) (file *slackapi.FileSummary, err error)
+	GetFileInfoContext(ctx context.Context, fileID string, count, page int) (*slackapi.File, []slackapi.Comment, *slackapi.Paging, error)
+	GetConversationsContext(ctx context.Context, params *slackapi.GetConversationsParameters) (channels []slackapi.Channel, nextCursor string, err error)
 }
 
 type slack struct {
-	client   slackClient
-	channel  string
-	username string
+	client    slackClient
+	channel   string
+	channelID string
+	username  string
 }
 
 func newSlack() slack {
+	ctx := context.Background()
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
 		panic("please set slack client")
 	}
 
-	client := slackapi.New(token)
+	newSlack := slackapi.New(token)
 
+	client := slack{
+		client: newSlack,
+	}
 	channel := os.Getenv("SLACK_CHANNEL")
+
+	channelID := client.getChannelID(ctx, channel)
+	if channelID == "" {
+		channelID = channel
+	}
+	client.channelID = channelID
 
 	username := os.Getenv("SLACK_USERNAME")
 
-	return slack{
-		client:   client,
-		channel:  channel,
-		username: username,
-	}
+	client.username = username
+	client.channel = channel
 
+	return client
 }
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
@@ -252,23 +262,103 @@ func (s slack) notify(attachment slackapi.Attachment) (err error) {
 }
 
 func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err error) {
-	file, err = s.client.UploadFile(
-		slackapi.FileUploadParameters{
-			Title:    param.Namespace + "_" + param.JobName,
-			Content:  param.Log,
-			Filetype: "txt",
-			Channels: []string{s.channel},
-		})
+	ctx := context.Background()
+	content := param.Log
+	filename := param.Namespace + "_" + param.JobName + ".txt"
+
+	fileSize := len([]byte(content))
+	if fileSize == 0 {
+		return nil, fmt.Errorf("file size cannot be 0")
+	}
+
+	if filename == "" {
+		return nil, fmt.Errorf("filename cannot be empty")
+	}
+
+	if s.channel == "" {
+		return nil, fmt.Errorf("channel cannot be empty")
+	}
+
+	// Use filename if title is empty
+	title := param.Namespace + "_" + param.JobName
+	if title == "" || title == "_" {
+		title = filename
+	}
+
+	params := slackapi.UploadFileV2Parameters{
+		Title:    title,
+		Content:  content,
+		FileSize: fileSize,
+		Filename: filename,
+		Channel:  s.channelID,
+	}
+
+	klog.V(4).Infof("Uploading file: title=%s, filename=%s, fileSize=%d, channel=%s, channelID=%s)", title, filename, fileSize, s.channel, s.channelID)
+
+	fileSummary, err := s.client.UploadFileV2Context(ctx, params)
 	if err != nil {
-		klog.Errorf("File uploadLog failed %s\n", err)
+		klog.Errorf("File uploadLog failed: %v (title=%s, filename=%s, fileSize=%d, channel=%s, channelID=%s, contentLength=%d)\n",
+			err, title, filename, fileSize, s.channel, s.channelID, len(content))
 		return
 	}
 
-	klog.Infof("File uploadLog successfully %s", file.Name)
-	return
+	// Get complete File information from FileSummary to get Permalink
+	fileInfo, _, _, err := s.client.GetFileInfoContext(ctx, fileSummary.ID, 0, 0)
+	if err != nil {
+		klog.Errorf("Get file info failed %s\n", err)
+		return
+	}
+
+	klog.Infof("File uploadLog successfully %s", fileInfo.Name)
+	return fileInfo, nil
 }
 
 func isNotifyFromEnv(key string) bool {
 	value := os.Getenv(key)
 	return value != "false"
+}
+
+// getChannelID converts a channel name (e.g., "#channel-name") to a channel ID (e.g., "C1234567890")
+// If the input is already a channel ID or lookup fails, it returns the original value
+func (s slack) getChannelID(ctx context.Context, channel string) string {
+	// If channel starts with 'C', 'G', or 'D', it's likely already a channel ID
+	if len(channel) > 0 && (channel[0] == 'C' || channel[0] == 'G' || channel[0] == 'D') {
+		return channel
+	}
+
+	// Remove '#' prefix if present
+	channelName := channel
+	if len(channelName) > 0 && channelName[0] == '#' {
+		channelName = channelName[1:]
+	}
+
+	// Try to find the channel by name
+	params := &slackapi.GetConversationsParameters{
+		Types:  []string{"public_channel", "private_channel"},
+		Limit:  1000,
+		Cursor: "",
+	}
+
+	for {
+		channels, nextCursor, err := s.client.GetConversationsContext(ctx, params)
+		if err != nil {
+			klog.V(4).Infof("Failed to get conversations: %v", err)
+			return ""
+		}
+
+		for _, ch := range channels {
+			if ch.Name == channelName {
+				klog.V(4).Infof("Found channel ID %s for channel name %s", ch.ID, channelName)
+				return ch.ID
+			}
+		}
+
+		if nextCursor == "" {
+			break
+		}
+		params.Cursor = nextCursor
+	}
+
+	klog.V(4).Infof("Channel ID not found for channel name %s", channelName)
+	return ""
 }
