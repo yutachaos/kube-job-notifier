@@ -1,4 +1,4 @@
-module github.com/remmercier/kube-job-notifier
+module github.com/yutachaos/kube-job-notifier
 
 go 1.23
 

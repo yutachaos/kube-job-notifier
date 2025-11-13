@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -330,9 +331,28 @@ func (c *MockSlackClient) PostMessage(channelID string, options ...slackapi.MsgO
 	return args.String(0), args.String(1), args.Error(2)
 }
 
-func (c *MockSlackClient) UploadFile(params slackapi.FileUploadParameters) (file *slackapi.File, err error) {
-	args := c.Called(params)
-	return args.Get(0).(*slackapi.File), args.Error(1)
+func (c *MockSlackClient) UploadFileV2Context(ctx context.Context, params slackapi.UploadFileV2Parameters) (file *slackapi.FileSummary, err error) {
+	args := c.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*slackapi.FileSummary), args.Error(1)
+}
+
+func (c *MockSlackClient) GetFileInfoContext(ctx context.Context, fileID string, count, page int) (*slackapi.File, []slackapi.Comment, *slackapi.Paging, error) {
+	args := c.Called(ctx, fileID, count, page)
+	if args.Get(0) == nil {
+		return nil, nil, nil, args.Error(3)
+	}
+	return args.Get(0).(*slackapi.File), args.Get(1).([]slackapi.Comment), args.Get(2).(*slackapi.Paging), args.Error(3)
+}
+
+func (c *MockSlackClient) GetConversationsContext(ctx context.Context, params *slackapi.GetConversationsParameters) (channels []slackapi.Channel, nextCursor string, err error) {
+	args := c.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, "", args.Error(2)
+	}
+	return args.Get(0).([]slackapi.Channel), args.String(1), args.Error(2)
 }
 
 func TestGetSlackMessage(t *testing.T) {
