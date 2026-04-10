@@ -2,13 +2,13 @@ module github.com/yutachaos/kube-job-notifier
 
 go 1.23
 
-toolchain go1.26.0
+toolchain go1.26.2
 
 require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible
 	github.com/Songmu/flextime v0.1.0
 	github.com/slack-go/slack v0.16.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.11.1
 	github.com/thoas/go-funk v0.9.3
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
@@ -61,4 +61,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.8
+replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
