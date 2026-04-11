@@ -38,7 +38,7 @@ var slackColors = map[string]string{
 
 type slackClient interface {
 	PostMessage(channelID string, options ...slackapi.MsgOption) (string, string, error)
-	UploadFileV2Context(ctx context.Context, params slackapi.UploadFileV2Parameters) (file *slackapi.FileSummary, err error)
+	UploadFileContext(ctx context.Context, params slackapi.UploadFileParameters) (file *slackapi.FileSummary, err error)
 	GetFileInfoContext(ctx context.Context, fileID string, count, page int) (*slackapi.File, []slackapi.Comment, *slackapi.Paging, error)
 	GetConversationsContext(ctx context.Context, params *slackapi.GetConversationsParameters) (channels []slackapi.Channel, nextCursor string, err error)
 }
@@ -285,7 +285,7 @@ func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err e
 		title = filename
 	}
 
-	params := slackapi.UploadFileV2Parameters{
+	params := slackapi.UploadFileParameters{
 		Title:    title,
 		Content:  content,
 		FileSize: fileSize,
@@ -295,7 +295,7 @@ func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err e
 
 	klog.V(4).Infof("Uploading file: title=%s, filename=%s, fileSize=%d, channel=%s, channelID=%s)", title, filename, fileSize, s.channel, s.channelID)
 
-	fileSummary, err := s.client.UploadFileV2Context(ctx, params)
+	fileSummary, err := s.client.UploadFileContext(ctx, params)
 	if err != nil {
 		klog.Errorf("File uploadLog failed: %v (title=%s, filename=%s, fileSize=%d, channel=%s, channelID=%s, contentLength=%d)\n",
 			err, title, filename, fileSize, s.channel, s.channelID, len(content))

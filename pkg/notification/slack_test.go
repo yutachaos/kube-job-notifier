@@ -331,7 +331,7 @@ func (c *MockSlackClient) PostMessage(channelID string, options ...slackapi.MsgO
 	return args.String(0), args.String(1), args.Error(2)
 }
 
-func (c *MockSlackClient) UploadFileV2Context(ctx context.Context, params slackapi.UploadFileV2Parameters) (file *slackapi.FileSummary, err error) {
+func (c *MockSlackClient) UploadFileContext(ctx context.Context, params slackapi.UploadFileParameters) (file *slackapi.FileSummary, err error) {
 	args := c.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
