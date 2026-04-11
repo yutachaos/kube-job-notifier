@@ -15,12 +15,12 @@ import (
 
 func TestNewSlack(t *testing.T) {
 	os.Setenv("SLACK_TOKEN", "slack_token")
-	os.Setenv("SLACK_CHANNEL", "slack_channel")
+	os.Setenv("SLACK_CHANNEL", "C12345678") // channel ID format skips API lookup
 	os.Setenv("SLACK_USERNAME", "slack_username")
 
 	expected := slack{
 		client:   slackapi.New("slack_token"),
-		channel:  "slack_channel",
+		channel:  "C12345678",
 		username: "slack_username",
 	}
 	actual, err := newSlack()

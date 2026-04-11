@@ -227,7 +227,10 @@ func TestMsTeamsV2_NotifyFailed(t *testing.T) {
 }
 
 func TestMsTeamsV2_SendNotificationError(t *testing.T) {
-	msTeams := MsTeamsV2{webhookURL: "http://invalid-url-that-does-not-exist.local"}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server.Close() // Close immediately so the request fails with connection refused
+
+	msTeams := MsTeamsV2{webhookURL: server.URL}
 
 	messageParam := MessageTemplateParam{
 		JobName:   "test-job",
