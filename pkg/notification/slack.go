@@ -11,6 +11,7 @@ import (
 	"k8s.io/klog"
 )
 
+
 const (
 	SlackMessageTemplate = `
 {{if .CronJobName}} *CronJobName*: {{.CronJobName}}{{end}}
@@ -50,11 +51,11 @@ type slack struct {
 	username  string
 }
 
-func newSlack() slack {
+func newSlack() (slack, error) {
 	ctx := context.Background()
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
-		panic("please set slack client")
+		return slack{}, fmt.Errorf("please set slack client")
 	}
 
 	newSlack := slackapi.New(token)
@@ -75,7 +76,7 @@ func newSlack() slack {
 	client.username = username
 	client.channel = channel
 
-	return client
+	return client, nil
 }
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {

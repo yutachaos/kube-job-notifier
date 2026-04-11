@@ -1,5 +1,7 @@
 package monitoring
 
+import "os"
+
 type JobInfo struct {
 	Name        string
 	CronJobName string
@@ -22,7 +24,8 @@ type Subscription interface {
 // NewSubscription Support for returning multiple event notifications in one
 func NewSubscription() map[string]Subscription {
 	res := make(map[string]Subscription)
-	// default notification
-	res["datadog"] = newDatadog()
+	if os.Getenv("DATADOG_ENABLE") == "true" {
+		res["datadog"] = newDatadog()
+	}
 	return res
 }

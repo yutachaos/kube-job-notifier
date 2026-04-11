@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/thoas/go-funk"
@@ -70,9 +71,12 @@ func NewController(
 		recorder:   recorder,
 	}
 	serverStartTime = time.Now().Local()
-	notifiedJobs := make(map[string]bool)
+	var notifiedJobs sync.Map
 
-	notifications := notification.NewNotifications()
+	notifications, err := notification.NewNotifications()
+	if err != nil {
+		klog.Fatalf("Error creating notifications: %s", err)
+	}
 	subscriptions := monitoring.NewSubscription()
 	datadogSubscription := subscriptions["datadog"]
 
@@ -101,7 +105,7 @@ func NewController(
 				return
 			}
 
-			if notifiedJobs[newJob.Name] {
+			if v, ok := notifiedJobs.Load(newJob.Name); ok && v.(bool) {
 				return
 			}
 
@@ -128,16 +132,12 @@ func NewController(
 				Annotations: newJob.Spec.Template.Annotations,
 			}
 			for name, n := range notifications {
-				err := n.NotifyStart(messageParam)
-				if err != nil {
+				if err := n.NotifyStart(messageParam); err != nil {
 					klog.Errorf("Failed %s notification: %v", name, err)
 				}
 			}
 
-			// Record that start notification was sent (keep false as completion notification will be sent separately)
-			// Completion notification will be sent in UpdateFunc, so we don't set it here
 			klog.V(4).Infof("Job %s: Start notification sent, waiting for completion", newJob.Name)
-
 		},
 		UpdateFunc: func(old, new any) {
 			newJob := new.(*batchv1.Job)
@@ -145,6 +145,7 @@ func NewController(
 
 			klog.Infof("oldJob.Status:%v", oldJob.Status)
 			klog.Infof("newJob.Status:%v", newJob.Status)
+
 			cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
 			if err != nil {
 				klog.Errorf("Get cronjob failed: %v", err)
@@ -163,22 +164,23 @@ func NewController(
 				return
 			}
 
-			// Check if status has changed (only notify when succeeded or failed status changes)
 			oldSucceeded := oldJob.Status.Succeeded == intTrue
 			newSucceeded := newJob.Status.Succeeded == intTrue
 			oldFailed := oldJob.Status.Failed == intTrue
 			newFailed := newJob.Status.Failed == intTrue
 
-			// Skip if status hasn't changed
 			if oldSucceeded == newSucceeded && oldFailed == newFailed {
-				klog.V(4).Infof("Job %s: Status unchanged (oldSucceeded=%v, newSucceeded=%v, oldFailed=%v, newFailed=%v), skipping notification",
-					newJob.Name, oldSucceeded, newSucceeded, oldFailed, newFailed)
+				klog.V(4).Infof("Job %s: Status unchanged, skipping notification", newJob.Name)
 				return
 			}
 
-			// Skip if completion notification has already been sent
-			if notifiedJobs[newJob.Name] {
+			if v, ok := notifiedJobs.Load(newJob.Name); ok && v.(bool) {
 				klog.Infof("Job %s: Skipping notification - Already notified", newJob.Name)
+				return
+			}
+
+			// Only proceed for newly succeeded or newly failed
+			if !((newSucceeded && !oldSucceeded) || (newFailed && !oldFailed)) {
 				return
 			}
 
@@ -188,122 +190,65 @@ func NewController(
 				return
 			}
 
-			err = waitForPodRunning(kubeclientset, jobPod)
-			if err != nil {
+			if err = waitForPodRunning(kubeclientset, jobPod); err != nil {
 				klog.Errorf("Error waiting for pod to become running: %v", err)
 				return
 			}
 
-			// Only notify when succeeded status changes (newly succeeded)
-			if newJob.Status.Succeeded == intTrue && !oldSucceeded {
-				klog.Infof("Job succeeded: Name: %s: Status: %v", newJob.Name, newJob.Status)
-				klog.Infof("Job %s: Starting success notification process", newJob.Name)
-				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
-				if err != nil {
-					klog.Errorf("Get pods failed: %v", err)
-					return
-				}
+			annotations := newJob.Spec.Template.Annotations
+			lm := getLogMode(annotations, logModeAnnotationName)
+			jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
 
-				annotations := newJob.Spec.Template.Annotations
-				lm := getLogMode(annotations, logModeAnnotationName)
-				jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
-
-				messageParam := notification.MessageTemplateParam{
-					JobName:        newJob.Name,
-					CronJobName:    cronJobName,
-					Namespace:      newJob.Namespace,
-					StartTime:      newJob.Status.StartTime,
-					CompletionTime: newJob.Status.CompletionTime,
-					Log:            jobLogStr,
-					Annotations:    annotations,
-				}
-
-				klog.Infof("Job %s: Sending notifications to %d notification services", newJob.Name, len(notifications))
-				for name, n := range notifications {
-					klog.Infof("Job %s: Sending %s notification", newJob.Name, name)
-					err = n.NotifySuccess(messageParam)
-					if err != nil {
-						klog.Errorf("Failed %s notification for job %s: %v", name, newJob.Name, err)
-					} else {
-						klog.Infof("Job %s: %s notification sent successfully", newJob.Name, name)
-					}
-				}
-
-				if os.Getenv("DATADOG_ENABLE") == "true" {
-
-					err = datadogSubscription.SuccessEvent(
-						monitoring.JobInfo{
-							CronJobName: cronJobName,
-							Name:        newJob.Name,
-							Namespace:   newJob.Namespace,
-							Annotations: newJob.Spec.Template.Annotations,
-						})
-					if err != nil {
-						klog.Errorf("Fail event subscribe.: %v", err)
-					}
-				}
-				klog.V(4).Infof("Job succeeded log: %v", jobLogStr)
-				isCompleted := isCompletedJob(kubeclientset, newJob)
-				klog.Infof("Job %s: Setting notified flag to %t", newJob.Name, isCompleted)
-				notifiedJobs[newJob.Name] = isCompleted
-			} else if newJob.Status.Failed == intTrue && !oldFailed {
-				klog.Infof("Job failed: Name: %s: Status: %v", newJob.Name, newJob.Status)
-				klog.Infof("Job %s: Starting failure notification process", newJob.Name)
-				jobPod, err := getPodFromControllerUID(kubeclientset, newJob)
-				if err != nil {
-					klog.Errorf("Get pods failed: %v", err)
-					return
-				}
-
-				cronJobName, err := getCronJobNameFromOwnerReferences(kubeclientset, newJob)
-				if err != nil {
-					klog.Errorf("Get cronjob failed: %v", err)
-					return
-				}
-
-				annotations := newJob.Spec.Template.Annotations
-				lm := getLogMode(annotations, logModeAnnotationName)
-				jobLogStr := getJobLogs(kubeclientset, jobPod, cronJobName, lm)
-
-				messageParam := notification.MessageTemplateParam{
-					JobName:        newJob.Name,
-					CronJobName:    cronJobName,
-					Namespace:      newJob.Namespace,
-					StartTime:      newJob.Status.StartTime,
-					CompletionTime: newJob.Status.CompletionTime,
-					Log:            jobLogStr,
-					Annotations:    annotations,
-				}
-				klog.Infof("Job %s: Sending failure notifications to %d notification services", newJob.Name, len(notifications))
-				for name, n := range notifications {
-					klog.Infof("Job %s: Sending %s failure notification", newJob.Name, name)
-					err := n.NotifyFailed(messageParam)
-					if err != nil {
-						klog.Errorf("Failed %s failure notification for job %s: %v", name, newJob.Name, err)
-					} else {
-						klog.Infof("Job %s: %s failure notification sent successfully", newJob.Name, name)
-					}
-				}
-				if os.Getenv("DATADOG_ENABLE") == "true" {
-					err = datadogSubscription.FailEvent(
-						monitoring.JobInfo{
-							CronJobName: cronJobName,
-							Name:        newJob.Name,
-							Namespace:   newJob.Namespace,
-							Annotations: newJob.Spec.Template.Annotations,
-						})
-					if err != nil {
-						klog.Errorf("Fail event subscribe.: %v", err)
-					}
-				}
-				isCompleted := isCompletedJob(kubeclientset, newJob)
-				klog.Infof("Job %s: Setting failure notified flag to %t", newJob.Name, isCompleted)
-				notifiedJobs[newJob.Name] = isCompleted
+			messageParam := notification.MessageTemplateParam{
+				JobName:        newJob.Name,
+				CronJobName:    cronJobName,
+				Namespace:      newJob.Namespace,
+				StartTime:      newJob.Status.StartTime,
+				CompletionTime: newJob.Status.CompletionTime,
+				Log:            jobLogStr,
+				Annotations:    annotations,
 			}
+
+			jobInfo := monitoring.JobInfo{
+				CronJobName: cronJobName,
+				Name:        newJob.Name,
+				Namespace:   newJob.Namespace,
+				Annotations: newJob.Spec.Template.Annotations,
+			}
+
+			if newSucceeded && !oldSucceeded {
+				klog.Infof("Job succeeded: Name: %s: Status: %v", newJob.Name, newJob.Status)
+				for name, n := range notifications {
+					if err := n.NotifySuccess(messageParam); err != nil {
+						klog.Errorf("Failed %s notification for job %s: %v", name, newJob.Name, err)
+					}
+				}
+				if os.Getenv("DATADOG_ENABLE") == "true" {
+					if err := datadogSubscription.SuccessEvent(jobInfo); err != nil {
+						klog.Errorf("Fail event subscribe.: %v", err)
+					}
+				}
+			} else {
+				klog.Infof("Job failed: Name: %s: Status: %v", newJob.Name, newJob.Status)
+				for name, n := range notifications {
+					if err := n.NotifyFailed(messageParam); err != nil {
+						klog.Errorf("Failed %s failure notification for job %s: %v", name, newJob.Name, err)
+					}
+				}
+				if os.Getenv("DATADOG_ENABLE") == "true" {
+					if err := datadogSubscription.FailEvent(jobInfo); err != nil {
+						klog.Errorf("Fail event subscribe.: %v", err)
+					}
+				}
+			}
+
+			isCompleted := isCompletedJob(kubeclientset, newJob)
+			klog.Infof("Job %s: Setting notified flag to %t", newJob.Name, isCompleted)
+			notifiedJobs.Store(newJob.Name, isCompleted)
 		},
 		DeleteFunc: func(obj any) {
 			deletedJob := obj.(*batchv1.Job)
-			delete(notifiedJobs, deletedJob.Name)
+			notifiedJobs.Delete(deletedJob.Name)
 		},
 	})
 
@@ -371,37 +316,24 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 }
 
 func getCronJobNameFromOwnerReferences(kubeclientset kubernetes.Interface, job *batchv1.Job) (cronJobName string, err error) {
-
-	if ownerReferences, ok := funk.Filter(job.OwnerReferences,
+	ownerReferences, ok := funk.Filter(job.OwnerReferences,
 		func(ownerReference metav1.OwnerReference) bool {
 			return ownerReference.Kind == "CronJob"
-		}).([]metav1.OwnerReference); ok &&
-		len(ownerReferences) > 0 {
-		cronJobBeta, err := kubeclientset.BatchV1beta1().CronJobs(job.Namespace).Get(context.TODO(),
-			ownerReferences[0].Name,
-			metav1.GetOptions{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       ownerReferences[0].Kind,
-					APIVersion: ownerReferences[0].APIVersion,
-				},
-			})
+		}).([]metav1.OwnerReference)
+	if !ok || len(ownerReferences) == 0 {
+		return cronJobName, err
+	}
 
-		if err == nil {
-			return cronJobBeta.Name, err
-		}
-
-		cronJobV1, err := kubeclientset.BatchV1().CronJobs(job.Namespace).Get(context.TODO(),
-			ownerReferences[0].Name,
-			metav1.GetOptions{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       ownerReferences[0].Kind,
-					APIVersion: ownerReferences[0].APIVersion,
-				},
-			})
-
-		if err == nil {
-			return cronJobV1.Name, err
-		}
+	cronJobV1, err := kubeclientset.BatchV1().CronJobs(job.Namespace).Get(context.TODO(),
+		ownerReferences[0].Name,
+		metav1.GetOptions{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       ownerReferences[0].Kind,
+				APIVersion: ownerReferences[0].APIVersion,
+			},
+		})
+	if err == nil {
+		return cronJobV1.Name, nil
 	}
 	return cronJobName, err
 }
