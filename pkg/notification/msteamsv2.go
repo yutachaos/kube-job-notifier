@@ -3,6 +3,7 @@ package notification
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -64,14 +65,14 @@ type MsTeamsV2 struct {
 	webhookURL string
 }
 
-func newMsTeamsV2() MsTeamsV2 {
+func newMsTeamsV2() (MsTeamsV2, error) {
 	webhookURL := os.Getenv("MSTEAMSV2_WEBHOOK_URL")
 	if webhookURL == "" {
-		panic("please set webhook URL for MSTeamsV2")
+		return MsTeamsV2{}, fmt.Errorf("please set webhook URL for MSTeamsV2")
 	}
 	return MsTeamsV2{
 		webhookURL: webhookURL,
-	}
+	}, nil
 }
 
 func getTeamsMessage(messageParam MessageTemplateParam) (slackMessage string, err error) {
@@ -124,11 +125,13 @@ func (m MsTeamsV2) SendNotification(title string, messageParam MessageTemplatePa
 	body = &payload
 
 	resp, err := http.Post(m.webhookURL, "application/json", body)
-	if resp != nil {
-		klog.Infof("HTTP Response Status: %s", resp.Status)
-	}
 	if err != nil {
 		return err
+	}
+	defer resp.Body.Close()
+	klog.Infof("HTTP Response Status: %s", resp.Status)
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("webhook returned HTTP status %d", resp.StatusCode)
 	}
 	return nil
 }

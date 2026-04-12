@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -36,13 +37,21 @@ type Notification interface {
 	NotifyFailed(messageParam MessageTemplateParam) (err error)
 }
 
-func NewNotifications() map[string]Notification {
+func NewNotifications() (map[string]Notification, error) {
 	res := make(map[string]Notification)
 	if os.Getenv("SLACK_ENABLED") == "true" {
-		res["slack"] = newSlack()
+		s, err := newSlack()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create slack notification: %w", err)
+		}
+		res["slack"] = s
 	}
 	if os.Getenv("MSTEAMSV2_ENABLED") == "true" {
-		res["msteamsv2"] = newMsTeamsV2()
+		m, err := newMsTeamsV2()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create msteamsv2 notification: %w", err)
+		}
+		res["msteamsv2"] = m
 	}
-	return res
+	return res, nil
 }

@@ -37,6 +37,9 @@ func main() {
 		}
 	} else {
 		cfg, err := rest.InClusterConfig()
+		if err != nil {
+			klog.Fatalf("Error building in cluster config: %s", err.Error())
+		}
 		kubeClient, err = kubernetes.NewForConfig(cfg)
 		if err != nil {
 			klog.Fatalf("Error building in cluster kubeclient: %s", err.Error())
@@ -63,8 +66,10 @@ func main() {
 }
 
 func init() {
-	u, _ := user.Current()
-	defaultPath := filepath.Join(u.HomeDir, ".kube", "config")
+	defaultPath := ""
+	if u, err := user.Current(); err == nil {
+		defaultPath = filepath.Join(u.HomeDir, ".kube", "config")
+	}
 	// set kubeconfig flag
 	flag.StringVar(&kubeconfig, "kubeconfig", defaultPath, "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")

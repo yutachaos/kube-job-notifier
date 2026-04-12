@@ -11,6 +11,7 @@ import (
 	"k8s.io/klog"
 )
 
+
 const (
 	SlackMessageTemplate = `
 {{if .CronJobName}} *CronJobName*: {{.CronJobName}}{{end}}
@@ -50,11 +51,11 @@ type slack struct {
 	username  string
 }
 
-func newSlack() slack {
+func newSlack() (slack, error) {
 	ctx := context.Background()
 	token := os.Getenv("SLACK_TOKEN")
 	if token == "" {
-		panic("please set slack client")
+		return slack{}, fmt.Errorf("please set slack client")
 	}
 
 	newSlack := slackapi.New(token)
@@ -75,7 +76,7 @@ func newSlack() slack {
 	client.username = username
 	client.channel = channel
 
-	return client
+	return client, nil
 }
 
 func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
@@ -321,8 +322,12 @@ func isNotifyFromEnv(key string) bool {
 // getChannelID converts a channel name (e.g., "#channel-name") to a channel ID (e.g., "C1234567890")
 // If the input is already a channel ID or lookup fails, it returns the original value
 func (s slack) getChannelID(ctx context.Context, channel string) string {
+	if channel == "" {
+		return ""
+	}
+
 	// If channel starts with 'C', 'G', or 'D', it's likely already a channel ID
-	if len(channel) > 0 && (channel[0] == 'C' || channel[0] == 'G' || channel[0] == 'D') {
+	if channel[0] == 'C' || channel[0] == 'G' || channel[0] == 'D' {
 		return channel
 	}
 
