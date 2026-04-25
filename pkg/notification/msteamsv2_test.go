@@ -17,17 +17,18 @@ func TestNewMsTeamsV2(t *testing.T) {
 	t.Run("should create MsTeamsV2 with webhook URL", func(t *testing.T) {
 		t.Setenv("MSTEAMSV2_WEBHOOK_URL", "https://example.com/webhook")
 
-		msTeams := newMsTeamsV2()
+		msTeams, err := newMsTeamsV2()
 
+		assert.NoError(t, err)
 		assert.Equal(t, "https://example.com/webhook", msTeams.webhookURL)
 	})
 
-	t.Run("should panic when webhook URL is not set", func(t *testing.T) {
+	t.Run("should return error when webhook URL is not set", func(t *testing.T) {
 		t.Setenv("MSTEAMSV2_WEBHOOK_URL", "")
 
-		assert.Panics(t, func() {
-			newMsTeamsV2()
-		})
+		_, err := newMsTeamsV2()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "please set webhook URL for MSTeamsV2")
 	})
 }
 
@@ -226,7 +227,10 @@ func TestMsTeamsV2_NotifyFailed(t *testing.T) {
 }
 
 func TestMsTeamsV2_SendNotificationError(t *testing.T) {
-	msTeams := MsTeamsV2{webhookURL: "http://invalid-url-that-does-not-exist.local"}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server.Close() // Close immediately so the request fails with connection refused
+
+	msTeams := MsTeamsV2{webhookURL: server.URL}
 
 	messageParam := MessageTemplateParam{
 		JobName:   "test-job",
@@ -253,5 +257,6 @@ func TestMsTeamsV2_SendNotificationWithHTTPError(t *testing.T) {
 
 	err := msTeams.SendNotification("Test", messageParam, colorGreen)
 
-	assert.NoError(t, err) // The function doesn't check HTTP status codes
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "500")
 }

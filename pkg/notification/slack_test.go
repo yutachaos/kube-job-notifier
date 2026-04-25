@@ -15,22 +15,24 @@ import (
 
 func TestNewSlack(t *testing.T) {
 	os.Setenv("SLACK_TOKEN", "slack_token")
-	os.Setenv("SLACK_CHANNEL", "slack_channel")
+	os.Setenv("SLACK_CHANNEL", "C12345678") // channel ID format skips API lookup
 	os.Setenv("SLACK_USERNAME", "slack_username")
 
 	expected := slack{
 		client:   slackapi.New("slack_token"),
-		channel:  "slack_channel",
+		channel:  "C12345678",
 		username: "slack_username",
 	}
-	actual := newSlack()
+	actual, err := newSlack()
+	assert.NoError(t, err)
 	assert.Equal(t, expected.channel, actual.channel)
 	assert.Equal(t, expected.username, actual.username)
 
 	os.Unsetenv("SLACK_CHANNEL")
 	os.Unsetenv("SLACK_USERNAME")
 
-	actual = newSlack()
+	actual, err = newSlack()
+	assert.NoError(t, err)
 	expected = slack{
 		client:   slackapi.New("slack_token"),
 		channel:  "",
@@ -38,15 +40,12 @@ func TestNewSlack(t *testing.T) {
 	}
 	assert.Equal(t, expected.channel, actual.channel)
 	assert.Equal(t, expected.username, actual.username)
-	// For panic test
-	defer func() {
-		err := recover()
-		if err != "please set slack client" {
-			t.Errorf("got %v\nwant %v", err, "please set slack client")
-		}
-	}()
+
+	// Test error when token is not set
 	os.Unsetenv("SLACK_TOKEN")
-	actual = newSlack()
+	_, err = newSlack()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "please set slack client")
 }
 
 func TestNotifyStart(t *testing.T) {
