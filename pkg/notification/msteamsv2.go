@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"k8s.io/klog"
 )
@@ -17,6 +18,8 @@ const (
 	colorRed   = "Attention"
 	colorGreen = "Good"
 	colorGrey  = "Warning"
+
+	msTeamsRequestTimeout = 10 * time.Second
 
 	TeamsMessageTemplate = `
 {{if .CronJobName}}**CronJobName**: {{.CronJobName}}{{end}}
@@ -63,6 +66,7 @@ type TeamsMessage struct {
 
 type MsTeamsV2 struct {
 	webhookURL string
+	httpClient *http.Client
 }
 
 func newMsTeamsV2() (MsTeamsV2, error) {
@@ -70,9 +74,14 @@ func newMsTeamsV2() (MsTeamsV2, error) {
 	if webhookURL == "" {
 		return MsTeamsV2{}, fmt.Errorf("please set webhook URL for MSTeamsV2")
 	}
+	return newMsTeamsV2WithURL(webhookURL), nil
+}
+
+func newMsTeamsV2WithURL(webhookURL string) MsTeamsV2 {
 	return MsTeamsV2{
 		webhookURL: webhookURL,
-	}, nil
+		httpClient: &http.Client{Timeout: msTeamsRequestTimeout},
+	}
 }
 
 func getTeamsMessage(messageParam MessageTemplateParam) (slackMessage string, err error) {
@@ -124,7 +133,7 @@ func (m MsTeamsV2) SendNotification(title string, messageParam MessageTemplatePa
 
 	body = &payload
 
-	resp, err := http.Post(m.webhookURL, "application/json", body)
+	resp, err := m.httpClient.Post(m.webhookURL, "application/json", body)
 	if err != nil {
 		return err
 	}

@@ -21,6 +21,7 @@ func TestNewMsTeamsV2(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, "https://example.com/webhook", msTeams.webhookURL)
+		assert.Equal(t, msTeamsRequestTimeout, msTeams.httpClient.Timeout)
 	})
 
 	t.Run("should return error when webhook URL is not set", func(t *testing.T) {
@@ -79,7 +80,7 @@ func TestGetTeamsMessageWithoutCronJob(t *testing.T) {
 }
 
 func TestMsTeamsV2_GetTeamsPayload(t *testing.T) {
-	msTeams := MsTeamsV2{webhookURL: "https://example.com/webhook"}
+	msTeams := newMsTeamsV2WithURL("https://example.com/webhook")
 
 	t.Run("should create payload with correct structure", func(t *testing.T) {
 		payload := msTeams.GetTeamsPayload("Test Title", "Test Message", colorGreen)
@@ -146,7 +147,7 @@ func TestMsTeamsV2_NotifyStart(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msTeams := MsTeamsV2{webhookURL: server.URL}
+	msTeams := newMsTeamsV2WithURL(server.URL)
 	startTime := &metav1.Time{Time: mockTime}
 
 	messageParam := MessageTemplateParam{
@@ -175,7 +176,7 @@ func TestMsTeamsV2_NotifySuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msTeams := MsTeamsV2{webhookURL: server.URL}
+	msTeams := newMsTeamsV2WithURL(server.URL)
 	startTime := &metav1.Time{Time: mockTime}
 	completionTime := &metav1.Time{Time: startTime.Add(1 * time.Minute)}
 
@@ -207,7 +208,7 @@ func TestMsTeamsV2_NotifyFailed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msTeams := MsTeamsV2{webhookURL: server.URL}
+	msTeams := newMsTeamsV2WithURL(server.URL)
 	startTime := &metav1.Time{Time: mockTime}
 	completionTime := &metav1.Time{Time: startTime.Add(1 * time.Minute)}
 
@@ -230,7 +231,7 @@ func TestMsTeamsV2_SendNotificationError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	server.Close() // Close immediately so the request fails with connection refused
 
-	msTeams := MsTeamsV2{webhookURL: server.URL}
+	msTeams := newMsTeamsV2WithURL(server.URL)
 
 	messageParam := MessageTemplateParam{
 		JobName:   "test-job",
@@ -248,7 +249,7 @@ func TestMsTeamsV2_SendNotificationWithHTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	msTeams := MsTeamsV2{webhookURL: server.URL}
+	msTeams := newMsTeamsV2WithURL(server.URL)
 
 	messageParam := MessageTemplateParam{
 		JobName:   "test-job",
@@ -259,4 +260,27 @@ func TestMsTeamsV2_SendNotificationWithHTTPError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "500")
+}
+
+func TestMsTeamsV2_SendNotificationTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	msTeams := MsTeamsV2{
+		webhookURL: server.URL,
+		httpClient: &http.Client{Timeout: 10 * time.Millisecond},
+	}
+
+	messageParam := MessageTemplateParam{
+		JobName:   "test-job",
+		Namespace: "default",
+	}
+
+	err := msTeams.SendNotification("Test", messageParam, colorGreen)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Client.Timeout")
 }
