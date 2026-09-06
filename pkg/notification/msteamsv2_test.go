@@ -284,3 +284,18 @@ func TestMsTeamsV2_SendNotificationTimeout(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Client.Timeout")
 }
+
+func TestGetTeamsMessageDoesNotEscapeSpecialCharacters(t *testing.T) {
+	messageParam := MessageTemplateParam{
+		JobName:     "batch's-job & report",
+		CronJobName: "cron<job>",
+		Namespace:   "team's-namespace",
+	}
+
+	message, err := getTeamsMessage(messageParam)
+
+	assert.NoError(t, err)
+	assert.Contains(t, message, "**CronJobName**: cron<job>")
+	assert.Contains(t, message, "**JobName**: batch's-job & report")
+	assert.Contains(t, message, "**Namespace**: team's-namespace")
+}
