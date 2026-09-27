@@ -1,10 +1,12 @@
 package monitoring
 
 import (
+	"bytes"
 	"github.com/DataDog/datadog-go/statsd"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestNewDatadog(t *testing.T) {
@@ -638,4 +640,90 @@ func TestDatadogAdditionalRecoveryIssues(t *testing.T) {
 			assert.Equal(t, expectedStatuses[i], sc.Status, "Event %d should have correct status", i)
 		}
 	})
+}
+
+type bufferWriter struct {
+	bytes.Buffer
+}
+
+func (w *bufferWriter) SetWriteTimeout(time.Duration) error { return nil }
+func (w *bufferWriter) Close() error                        { return nil }
+
+func newTestDatadog(t *testing.T) (datadog, *bufferWriter) {
+	t.Helper()
+	w := &bufferWriter{}
+	client, err := statsd.NewWithWriter(w, statsd.WithoutTelemetry())
+	if err != nil {
+		t.Fatalf("failed to create statsd client: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	return datadog{client: client}, w
+}
+
+func TestDatadogEventsWithRealClient(t *testing.T) {
+	tests := []struct {
+		name     string
+		send     func(d datadog, jobInfo JobInfo) error
+		jobInfo  JobInfo
+		expected string
+	}{
+		{
+			name: "SuccessEvent sends OK service check",
+			send: datadog.SuccessEvent,
+			jobInfo: JobInfo{
+				Name:        "test-cronjob-123",
+				CronJobName: "test-cronjob",
+				Namespace:   "default",
+			},
+			expected: "_sc|kube_job_notifier.job.status|0|h:kube-job-notifier|#job_name:test-cronjob,namespace:default|m:Job succeed\n",
+		},
+		{
+			name: "FailEvent sends CRITICAL service check",
+			send: datadog.FailEvent,
+			jobInfo: JobInfo{
+				Name:      "test-job",
+				Namespace: "default",
+			},
+			expected: "_sc|kube_job_notifier.job.status|2|h:kube-job-notifier|#job_name:test-job,namespace:default|m:Job failed\n",
+		},
+		{
+			name: "SuccessEvent is suppressed by annotation",
+			send: datadog.SuccessEvent,
+			jobInfo: JobInfo{
+				Name:        "test-job",
+				Namespace:   "default",
+				Annotations: map[string]string{suppressSuccessAnnotationName: "true"},
+			},
+			expected: "",
+		},
+		{
+			name: "FailEvent is suppressed by annotation",
+			send: datadog.FailEvent,
+			jobInfo: JobInfo{
+				Name:        "test-job",
+				Namespace:   "default",
+				Annotations: map[string]string{suppressFailedAnnotationName: "true"},
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, w := newTestDatadog(t)
+
+			err := tt.send(d, tt.jobInfo)
+			assert.NoError(t, err)
+			assert.NoError(t, d.client.Flush())
+			assert.Equal(t, tt.expected, w.String())
+		})
+	}
+}
+
+func TestDatadogEventsWithNilClient(t *testing.T) {
+	d := datadog{}
+	jobInfo := JobInfo{Name: "test-job", Namespace: "default"}
+
+	assert.ErrorIs(t, d.SuccessEvent(jobInfo), statsd.ErrNoClient)
+	assert.ErrorIs(t, d.FailEvent(jobInfo), statsd.ErrNoClient)
 }
