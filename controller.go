@@ -300,7 +300,7 @@ func getPodFromControllerUID(kubeclientset kubernetes.Interface, job *batchv1.Jo
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{searchLabel: string(job.UID)}}
 	jobPodList, err := kubeclientset.CoreV1().Pods(job.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
-		Limit:         int64(*job.Spec.BackoffLimit),
+		Limit:         int64(*job.Spec.BackoffLimit) + 1,
 	})
 	if err != nil {
 		return corev1.Pod{}, err

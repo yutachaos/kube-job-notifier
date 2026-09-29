@@ -364,6 +364,32 @@ func TestGetPodFromControllerUID(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 	})
+
+	t.Run("list limit covers every attempt pod", func(t *testing.T) {
+		retriedBackoffLimit := int32(2)
+		retriedJob := &batchv1.Job{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-job", Namespace: "default", UID: "test-uid"},
+			Spec:       batchv1.JobSpec{BackoffLimit: &retriedBackoffLimit},
+		}
+
+		var gotLimit int64
+		fakeClient := &fake.Clientset{}
+		fakeClient.AddReactor("list", "pods", func(action core.Action) (handled bool, ret runtime.Object, err error) {
+			gotLimit = action.(core.ListActionImpl).ListOptions.Limit
+			return true, &v1.PodList{
+				Items: []v1.Pod{
+					{ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Labels: map[string]string{searchLabel: "test-uid"}}},
+				},
+			}, nil
+		})
+
+		if _, err := getPodFromControllerUID(fakeClient, retriedJob); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if want := int64(retriedBackoffLimit) + 1; gotLimit != want {
+			t.Errorf("expected list limit %d, got %d", want, gotLimit)
+		}
+	})
 }
 
 func TestGetCronJobNameFromOwnerReferences(t *testing.T) {
