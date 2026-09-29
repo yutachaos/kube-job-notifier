@@ -82,11 +82,11 @@ To obtain a webhook URL, follow the [Microsoft Teams Incoming Webhook documentat
 
 ### Datadog Integration
 
-Set `DATADOG_ENABLED=true` to enable Datadog service check reporting.
+Set `DATADOG_ENABLE=true` to enable Datadog service check reporting.
 
 | Environment Variable | Required | Default | Description |
 |---|---|---|---|
-| `DATADOG_ENABLED` | No | `false` | Enable Datadog service checks |
+| `DATADOG_ENABLE` | No | `false` | Enable Datadog service checks |
 | `DD_TAGS` | No | — | Tags to attach to all service checks (comma-separated) |
 | `DD_NAMESPACE` | No | — | Prefix namespace for metric names |
 
@@ -128,9 +128,9 @@ Set via the `kube-job-notifier/log-mode` annotation on the Job or CronJob resour
 
 | Value | Description |
 |---|---|
-| `ownerContainer` | (default) Collect logs only from the container whose name matches the job name |
-| `podOnly` | Collect logs from the pod as a whole; works well for single-container pods |
-| `podContainers` | Collect logs from all containers in the pod and concatenate them |
+| `OwnerContainer` | (default) Collect logs only from the container whose name matches the job name |
+| `PodOnly` | Collect logs from the pod as a whole; works well for single-container pods |
+| `PodContainers` | Collect logs from all containers in the pod and concatenate them |
 
 ## Running Locally
 
