@@ -512,3 +512,77 @@ func TestIsNotificationSuppressed(t *testing.T) {
 		})
 	}
 }
+
+func TestUploadLogChannel(t *testing.T) {
+	defaultChannel := "default_channel"
+	defaultChannelID := "C0DEFAULT"
+
+	tests := []struct {
+		Name              string
+		annotations       map[string]string
+		lookupChannels    []slackapi.Channel
+		expectedChannel   string
+		expectedChannelID string
+	}{
+		{
+			"Default channel reuses cached channel ID",
+			map[string]string{},
+			nil,
+			defaultChannel,
+			defaultChannelID,
+		},
+		{
+			"Overridden channel name is resolved to its own ID",
+			map[string]string{
+				"kube-job-notifier/failed-channel": "#job-alerts-failed",
+			},
+			[]slackapi.Channel{{GroupConversation: slackapi.GroupConversation{
+				Conversation: slackapi.Conversation{ID: "C0FAILED"},
+				Name:         "job-alerts-failed",
+			}}},
+			"#job-alerts-failed",
+			"C0FAILED",
+		},
+		{
+			"Overridden channel ID is used as is",
+			map[string]string{
+				"kube-job-notifier/failed-channel": "C0ANNOTATED",
+			},
+			nil,
+			"C0ANNOTATED",
+			"C0ANNOTATED",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			os.Setenv("SLACK_FAILED_NOTIFY", "true")
+			defer os.Unsetenv("SLACK_FAILED_NOTIFY")
+
+			mc := &MockSlackClient{}
+			if test.lookupChannels != nil {
+				mc.On("GetConversationsContext", mock.Anything, mock.AnythingOfType("*slack.GetConversationsParameters")).
+					Return(test.lookupChannels, "", nil)
+			}
+			mc.On("UploadFileContext", mock.Anything, mock.MatchedBy(func(p slackapi.UploadFileParameters) bool {
+				return p.Channel == test.expectedChannelID
+			})).Return(&slackapi.FileSummary{ID: "F123"}, nil)
+			mc.On("GetFileInfoContext", mock.Anything, "F123", 0, 0).
+				Return(&slackapi.File{Name: "log.txt", Permalink: "https://slack.example/F123"}, []slackapi.Comment(nil), (*slackapi.Paging)(nil), nil)
+			mc.On("PostMessage", test.expectedChannel, mock.AnythingOfType("[]slack.MsgOption")).
+				Return(test.expectedChannel, "timestamp", nil)
+
+			s := slack{client: mc, channel: defaultChannel, channelID: defaultChannelID}
+
+			err := s.NotifyFailed(MessageTemplateParam{
+				JobName:     "the-job",
+				Namespace:   "ns",
+				Log:         "some log",
+				Annotations: test.annotations,
+			})
+
+			assert.NoError(t, err)
+			mc.AssertExpectations(t)
+		})
+	}
+}

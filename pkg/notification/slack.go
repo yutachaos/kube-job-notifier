@@ -90,14 +90,8 @@ func (s slack) NotifyStart(messageParam MessageTemplateParam) (err error) {
 		return nil
 	}
 
-	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
-	if succeedChannel != "" {
-		s.channel = succeedChannel
-	}
-	slackChannel := getSlackChannel(messageParam.Annotations, startedAnnotationName)
-	if slackChannel != "" {
-		s.channel = slackChannel
-	}
+	s = s.withChannel(os.Getenv("SLACK_SUCCEED_CHANNEL"))
+	s = s.withChannel(getSlackChannel(messageParam.Annotations, startedAnnotationName))
 
 	slackMessage, err := getSlackMessage(messageParam)
 	if err != nil {
@@ -142,14 +136,8 @@ func (s slack) NotifySuccess(messageParam MessageTemplateParam) (err error) {
 		return nil
 	}
 
-	succeedChannel := os.Getenv("SLACK_SUCCEED_CHANNEL")
-	if succeedChannel != "" {
-		s.channel = succeedChannel
-	}
-	slackChannel := getSlackChannel(messageParam.Annotations, successAnnotationName)
-	if slackChannel != "" {
-		s.channel = slackChannel
-	}
+	s = s.withChannel(os.Getenv("SLACK_SUCCEED_CHANNEL"))
+	s = s.withChannel(getSlackChannel(messageParam.Annotations, successAnnotationName))
 	if messageParam.Log != "" {
 		file, err := s.uploadLog(messageParam)
 		if err != nil {
@@ -190,14 +178,8 @@ func (s slack) NotifyFailed(messageParam MessageTemplateParam) (err error) {
 		return nil
 	}
 
-	failedChannel := os.Getenv("SLACK_FAILED_CHANNEL")
-	if failedChannel != "" {
-		s.channel = failedChannel
-	}
-	slackChannel := getSlackChannel(messageParam.Annotations, failedAnnotationName)
-	if slackChannel != "" {
-		s.channel = slackChannel
-	}
+	s = s.withChannel(os.Getenv("SLACK_FAILED_CHANNEL"))
+	s = s.withChannel(getSlackChannel(messageParam.Annotations, failedAnnotationName))
 	if messageParam.Log != "" {
 		file, err := s.uploadLog(messageParam)
 		if err != nil {
@@ -234,6 +216,18 @@ func getSlackChannel(annotations map[string]string, annotationName string) strin
 		return annotations[defaultAnnotationName]
 	}
 	return slackChannel
+}
+
+// withChannel switches the destination channel. The cached channel ID only
+// belongs to the configured default channel, so it is dropped on change and
+// resolved again lazily when a file upload needs it.
+func (s slack) withChannel(channel string) slack {
+	if channel == "" || channel == s.channel {
+		return s
+	}
+	s.channel = channel
+	s.channelID = ""
+	return s
 }
 
 func isNotificationSuppressed(annotations map[string]string, annotationName string) bool {
@@ -286,20 +280,28 @@ func (s slack) uploadLog(param MessageTemplateParam) (file *slackapi.File, err e
 		title = filename
 	}
 
+	channelID := s.channelID
+	if channelID == "" {
+		channelID = s.getChannelID(ctx, s.channel)
+		if channelID == "" {
+			channelID = s.channel
+		}
+	}
+
 	params := slackapi.UploadFileParameters{
 		Title:    title,
 		Content:  content,
 		FileSize: fileSize,
 		Filename: filename,
-		Channel:  s.channelID,
+		Channel:  channelID,
 	}
 
-	klog.V(4).Infof("Uploading file: title=%s, filename=%s, fileSize=%d, channel=%s, channelID=%s)", title, filename, fileSize, s.channel, s.channelID)
+	klog.V(4).Infof("Uploading file: title=%s, filename=%s, fileSize=%d, channel=%s, channelID=%s)", title, filename, fileSize, s.channel, channelID)
 
 	fileSummary, err := s.client.UploadFileContext(ctx, params)
 	if err != nil {
 		klog.Errorf("File uploadLog failed: %v (title=%s, filename=%s, fileSize=%d, channel=%s, channelID=%s, contentLength=%d)\n",
-			err, title, filename, fileSize, s.channel, s.channelID, len(content))
+			err, title, filename, fileSize, s.channel, channelID, len(content))
 		return
 	}
 
